@@ -1,0 +1,94 @@
+#!/usr/local/bin/perl -w
+
+use strict;
+use DBI;
+use CGI qw(escape unescape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+use MrsAbbott;
+
+my $query = new CGI;
+print $query -> header;
+print $HTML_HEAD;
+
+my $dbh = DBI->connect('DBI:mysql:library', "marion", "shipoopie")
+   or die "Couldn't connect to database: " . DBI->errstr;  
+
+my $sth = $dbh->prepare(
+'SELECT t.id, t.article, t.title, t.edition, a.id, a.firstName, a.lastName 
+FROM title t, author a, hasWritten h
+WHERE h.authorRef = a.id AND h.titleRef = t.id')
+      or die "Couldn't prepare statement: " . $dbh -> errstr;   
+
+my @data;
+$sth -> execute
+     or die "Couldn't execute statement: " . $sth -> errstr;
+
+print <<"TOP";
+<table>
+<tr>
+<th>Book ID</th>
+<th>Title</th>
+<th>Author</th>
+</tr>
+
+TOP
+
+my %listHash;
+
+# Read the matching records and print them out
+while (@data = $sth -> fetchrow_array()) {
+
+     my $id = $data[0];
+     my $article = defined $data[1] ? $data[1] . ' ' : '';
+     my $title = $data[2];
+     my $edition = defined $data[3] ? " (" . $data[3] . "e)" : '';
+     my $authorID = $data[4];
+     my $firstName = $data[5];
+     my $lastName = $data[6];
+#      print "<tr>\n";
+#      print qq(<td><a href="/cgi-bin/list?titleid=$id">$id</a></td>\n);
+#      print "<td>$article</td>\n";
+#      print "<td>$title</td>\n";
+#      print "<td>$firstName</td>\n";
+#      print "<td>$lastName</td>\n";
+#      print "</tr>\n\n";
+
+     $listHash{$id}{'article'} = $article;
+     $listHash{$id}{'title'} = $article . $title . $edition; 
+     $listHash{$id}{'edition'} = $edition;
+
+     my $authLink = qq(<a href="/cgi-bin/author?authorid=$authorID">$lastName, $firstName</a>\n);
+
+     push (@{$listHash{$id}{'author'}}, $authLink);
+
+}
+
+foreach my $id (sort {$a <=> $b} keys %listHash) {
+
+    print "<tr>\n";
+
+    print qq(<td><a href="/cgi-bin/title?titleid=$id">$id</a></td>\n);
+    # print "<td>$listHash{$id}{'article'}</td>\n";
+    print "<td>$listHash{$id}{'title'}</td>\n";
+    # print "<td>$listHash{$id}{'edition'}</td>\n";
+    print "<td> ", (join " | ", @{$listHash{$id}{'author'}}), "</td>\n";
+
+    print "</tr>\n";
+
+}
+
+print "</table>\n";
+
+
+if ($sth -> rows == 0) {
+    print "Nothing found.\n";
+}
+
+print "\n";
+
+$sth->finish;
+$dbh->disconnect;
+
+print $HTML_FOOT;
+    

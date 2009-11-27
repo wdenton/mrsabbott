@@ -1,0 +1,402 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: series,v 1.3 2003/05/31 15:36:11 buff Exp $
+# $Author: buff $
+# $RCSfile: series,v $
+# Current $Revision: 1.3 $
+# Current $Date: 2003/05/31 15:36:11 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape unescape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+use MrsAbbott;
+use MrsAbbott::Config;
+use MrsAbbott::Series;
+use MrsAbbott::Title;
+
+# ----- Things to do with series
+#
+# Here we can: 
+#   Add a new series
+#   Edit an existing series (change where books fall in the series,
+#    which includes deleting them from a series)
+#   Add a book to a series
+#   Just view all the books in a given series
+
+my $query = new CGI;
+print $query -> header;
+
+$HTML_HEAD =~ s/::TITLE:://;
+$HTML_HEAD =~ s/::AUTHOR:://;
+print $HTML_HEAD;
+
+if ($query->param('seriesadd')) {
+
+    # Adding a new series!  This is just a matter of adding
+    # a name to the series table.  Adding books to the series
+    # is done on the title page for a given book, and putting
+    # them in order is done by editing a series.
+
+    print "<h2>Add A New Series</h2>\n";
+
+    if ($query->param('seriesname')) {
+
+	my $seriesName = $query->param('seriesname');
+
+	# Coming back, this time we know the name of the series.
+
+	my $dbh = DBI->connect($dataSource, $userName, $password)
+	   or die "Couldn't connect to database: " . DBI->errstr;  
+
+	my $insertName = $dbh->quote($seriesName);
+
+	$dbh->do(qq(
+INSERT INTO series (name) VALUES ($insertName)))
+        or die "Couldn't prepare statement: " . $dbh -> errstr;   
+    
+	my $newSeriesID = $dbh->{'mysql_insertid'};
+
+	$dbh->disconnect;
+
+	print "<p>\n";
+	print qq(<a href="/cgi-bin/series?seriesid=$newSeriesID">$seriesName) .
+	   qq(</a> added with ID $newSeriesID.  You can now edit it.\n);
+	print "</p>\n";
+
+	print $HTML_FOOT;
+	exit;
+
+    } else {
+
+	# Print out the form.
+
+	print qq(<form action="/cgi-bin/series">);
+	print qq(Name of series: ) .
+	   qq(<input type="text" name="seriesname" size="25">\n);
+	print qq(<input type="submit" name="seriesadd" value="Add Series">\n);
+	print qq(</form>\n);
+
+    }
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+if ($query->param('editseries')) {
+
+    # The form for editing where books fall in a series.
+    # Note: Don't allow two books to have the same place in a
+    # series!  This includes place 0, which will be used if
+    # you don't set a number.  There's no check on the input,
+    # but if you enter two books with the same place in the series
+    # things will get messed up.
+
+    my $seriesID = $query->param('seriesid');
+
+    my $seriesName = getSeriesName ($seriesID);
+
+    print "<h2>Edit $seriesName</h2>\n";
+
+    print "<p>To drop a book from the series, leaves its place ";
+    print "blank, or set it to zero.</p>\n";
+
+    my %seriesHash;
+    getSeriesInfo (\%seriesHash, $seriesID);
+
+    print qq(<form action="/cgi-bin/series" method="post">\n);
+    print qq(<table border="1">\n);
+    print qq(<tr>\n);
+    print qq(<th>Place</th>\n);
+    print qq(<th>Title</th>\n);
+    print qq(</tr>\n);
+
+    my $counter = 0;
+
+    foreach my $placeInSeries (sort {$a <=> $b} keys %seriesHash) {
+
+	$counter++;
+
+	my $titleID = $seriesHash{$placeInSeries}{'titleRef'};
+	my $bookTitle = newFormatTitle ($titleID);
+
+	print "<tr>\n";
+	print qq(<td><input type="text" size="3" value="$placeInSeries" 
+		 name="place_$counter" /></td>\n);
+	print qq(<input type="hidden" value="$titleID" 
+		 name="titleref_$counter" />\n);
+	print qq(<td><a 
+		 href="/cgi-bin/title?titleid=$titleID"><cite>$bookTitle</cite></a></td>\n);
+	print "</tr>\n";
+
+    }
+
+
+    print qq(</table>\n);
+    print "<p>\n";
+    print qq(<input type="hidden" name="number" value="$counter" />\n);
+    print qq(<input type="hidden" name="seriesid" value="$seriesID" />\n);
+    print qq(<input type="submit" name="updateseries" 
+	     value="Update Series" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+if ($query->param('updateseries')) {
+
+    my $seriesID = $query->param('seriesid');
+
+    my $seriesName = getSeriesName ($seriesID);
+
+    print "<h2>Updated Series $seriesName</h2>\n";
+
+    print "<p>Updated $seriesName (ID $seriesID). ";
+
+    my $number = $query->param('number');
+
+    print "Series contains $number books. ";
+
+    my $dbh = DBI->connect($dataSource, $userName, $password)
+       or die "Couldn't connect to database: " . DBI->errstr;  
+
+    # Delete all the old information about the series.
+
+    my $rowsAffected =
+       $dbh->do("DELETE FROM isInSeries WHERE seriesRef = $seriesID");
+
+    print "Deleted old information.  $rowsAffected rows affected.\n";
+
+    # And then insert the new stuff.
+
+    my $sth = $dbh->prepare("INSERT INTO isInSeries VALUES ('NULL', ?, ?, ?)");
+    
+    for my $i (1 .. $number) {
+	
+	# If a book has no place (field left blank), or is set
+	# to be less than 0, then that means the book is to be
+	# dropped from the series.
+	next unless $query->param("place_$i") > 0;
+
+	$sth->execute ($query->param("titleref_$i"), 
+		       $seriesID,
+		       $query->param("place_$i"));
+
+    }
+
+    $dbh->disconnect;
+
+    print "New series order inserted.</p>\n";
+
+    print qq(<p>View <a href="/cgi-bin/series?seriesid=$seriesID">) .
+       qq($seriesName</a></p>\n);
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+if ($query->param('addtoseries')) {
+
+    # Adding a book to a series.
+
+    my $titleID = $query->param('titleid');
+    my $titleName = newFormatTitle ($titleID);
+
+    unless ($query->param('placeinseries')) {
+
+	# Print out the initial form, asking what series the book
+	# should be in and what place it has there.
+
+	print "<h2>Adding <cite>$titleName</cite> to a series</h2>\n";
+
+	# Pop-up list of series.
+
+	my %seriesList;
+	listSeries (\%seriesList);
+	
+	# You can only add a book to an existing series.
+	print "<p>Please choose the series the book will go in. ";
+	print "The series must already exist.  If you need to add ";
+	print "a series to those known, please do so first.</p>\n";
+
+	print qq(<form action="/cgi-bin/series" method="post">\n);
+	print "<p>\n";
+	print qq(<input type="submit" name="seriesadd" 
+		 value="Add A Series" />\n);
+	print "</p>\n";
+	print qq(</form>\n);
+
+	print "<p>Otherwise, please pick the series the book is in ";
+	print "and its place in that series.</p>\n";
+   
+	print qq(<form action="/cgi-bin/series" method="post">\n);
+	print "<p>\n";
+	print "Series: ";
+	print qq(<select name="seriesid">\n);
+
+	foreach my $seriesID (sort {$seriesList{$a} cmp $seriesList{$b}}
+			      keys %seriesList) {
+	    
+	    print 
+	    qq(<option value="$seriesID"> $seriesList{$seriesID}</option>\n);
+
+	}
+
+	print "</select>\n";
+
+	print "Place in series: ";
+	print qq(<input type="text" size="2" name="placeinseries" />);
+	print qq(<input type="hidden" name="titleid" value="$titleID" />);
+	print "</p><p>\n";
+	print qq(<input type="submit" name="addtoseries" 
+		 value="Add to Series" />);
+	
+	print "</p>\n";
+	print "</form>\n";
+
+    } else { 
+
+	# We know the book, the series, and where book belongs in
+	# the series, so let's go to town and add all this to the
+	# database.
+
+	my $seriesID = $query->param('seriesid');
+	my $placeInSeries = $query->param('placeinseries');
+
+	my $seriesName = getSeriesName ($seriesID);
+
+	print "<h2>Adding <cite>$titleName</cite> to " .
+	    "the $seriesName series</h2>\n";
+	
+	print "<p>\n";
+	print qq(<a href="/cgi-bin/title?titleid=$titleID">) .
+	      qq(<cite>$titleName</cite></a> ).
+	      qq(will be in place # $placeInSeries );
+
+	   my $dbh = DBI->connect($dataSource, $userName, $password)
+	      or die "Couldn't connect to database: " . DBI->errstr;  
+
+	$dbh->do(qq(
+INSERT INTO isInSeries (titleRef, seriesRef, placeInSeries) 
+VALUES ($titleID, $seriesID, $placeInSeries)))
+        or die "Couldn't prepare statement: " . $dbh -> errstr;   
+    
+	my $seriesRefID = $dbh->{'mysql_insertid'};
+
+	$dbh->disconnect;
+
+	print qq(in <a href="/cgi-bin/series?seriesid=$seriesID">) .
+	   qq($seriesName</a> (ID $seriesRefID)\n);
+	print "</p>\n";
+	
+    }
+    
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+# seriesid will be defined if we want to look at or edit a series, but
+# all that is caught above.  If we get this far and haven't been
+# intercepted, and seriesid is defined, then we just want to do
+# a view on that series.
+
+if ($query->param('seriesid')) {
+
+    my $seriesID = $query->param('seriesid');
+
+    print "<h2>View Series: " . getSeriesName ($seriesID) . "</h2>\n";
+
+    my %seriesHash;
+
+    getSeriesInfo (\%seriesHash, $seriesID);
+
+    print "<ul>\n";
+
+    foreach my $placeInSeries (sort {$a <=> $b} keys %seriesHash) {
+
+	my $titleID = $seriesHash{$placeInSeries}{'titleRef'};
+	my $bookTitle = newFormatTitle ($titleID);
+
+	print qq(<li> $placeInSeries: <a href="/cgi-bin/title?titleid=$titleID"><cite>$bookTitle</cite></a>\n);
+	print "</li>\n";
+
+    }
+
+    print "</ul>\n";
+
+    print qq(<form action="/cgi-bin/series" method="post">\n);
+    print "<p>\n";
+    print qq(<label title="Edit series order, or delete books " .
+	     "from the series">);
+    print qq(<input type="submit" name="editseries" value="Edit Series" />\n);
+    print "</label>\n";
+    print qq(<input type="hidden" name="seriesid" value="$seriesID" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+
+# Else we just print out the default page.
+
+my %seriesList;
+
+my $dbh = DBI->connect($dataSource, $userName, $password)
+   or die "Couldn't connect to database: " . DBI->errstr;  
+
+my $sth = $dbh->prepare(q(SELECT * FROM series))
+   or die "Couldn't prepare statement: " . $dbh -> errstr;   
+
+$sth -> execute 
+   or die "Couldn't execute statement: " . $sth -> errstr;
+
+# There will be only one line per seriesID, so we don't need to loop.
+while (my $hashRef = $sth->fetchrow_hashref) {
+
+    $seriesList{$hashRef->{'id'}} = $hashRef->{'name'};
+ 
+}
+
+$sth->finish;
+$dbh->disconnect;
+
+print "<h2>Known Series</h2>\n";
+
+print "<ul>\n";
+
+foreach my $seriesID (sort { $seriesList{$a} cmp $seriesList{$b} }
+		      keys %seriesList) {
+
+    print qq(<li> <a href="/cgi-bin/series?seriesid=$seriesID">).
+       getSeriesName ($seriesID) . qq(</a>\n);
+    print "</li>\n";
+
+}
+
+print "</ul>\n";
+
+print qq(<form action="/cgi-bin/series" method="post">\n);
+print "<p>\n";
+print qq(<input type="submit" name="seriesadd" value="Add Series" />\n);
+print "</p>\n";
+print qq(</form>\n);
+
+print $HTML_FOOT;

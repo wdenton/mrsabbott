@@ -1,0 +1,112 @@
+body {
+  background-color: #AAAAFF;
+  background: #AAAAFF;
+  color: black;
+}
+
+h1 {
+  color: red;
+  background: #AAAAFF none;
+  font-weight: bold;
+  text-align: center
+}
+
+h2 {
+  color: #00008b;
+  background: #AAAAFF none;
+  text-align: center;
+  font-weight: bold
+}
+
+h3 {
+  color: #006400;
+  background: #AAAAFF none;
+  margin-left: 6%;
+  margin-right: 6%;
+  font-weight: bold
+}
+
+/* Lifted this menu bar stuff from
+   http://simon.incutio.com/archive/2003/05/27/funWithLinks
+*/
+
+div#menu a {
+  display: block;
+  float: left;
+  width: 4em;
+  padding: 0 0.2em;
+  margin-right: 1em;
+  text-decoration: none;
+  border: 1px solid red;
+  background-color: white;
+  color: red;
+}
+
+div#menu a:hover {
+  background-color: red;
+  color: white;
+}
+
+div#menu span {
+  display: none;
+}
+
+div#search {
+  float: right;
+}
+
+p {
+  /* text-indent: 2em; */
+}
+
+/* Don't indent p tags in blockquotes or forms */
+blockquote, form p {
+  text-indent: 0em
+}
+
+ul, ol, dl, p {
+  margin-left: 6%;
+  margin-right: 6%
+}
+
+pre {
+  font-family: monospace;
+  margin-left: 10%;
+  white-space: pre
+}
+
+table {
+  margin-left: 4%;
+  margin-right: 4%
+}
+
+table caption {
+  font-size: larger;
+  font-weight: bolder
+}
+
+p small { font-size: smaller }
+
+blockquote {
+  margin-left: 5%;
+  margin-right: 5%;
+  padding: 1em;
+  border: thin ridge #dc143c
+}
+
+a:link {
+  color: #00f;
+}
+
+a:visited {
+  color: #800080;
+}
+
+a:active {
+  background: yellow none
+}
+
+code {
+  font-family: monospace;
+}
+

@@ -1,0 +1,215 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: author,v 1.3 2003/05/31 18:09:34 buff Exp $
+# $Author: buff $
+# $RCSfile: author,v $
+# Current $Revision: 1.3 $
+# Current $Date: 2003/05/31 18:09:34 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape unescape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+use MrsAbbott;
+use MrsAbbott::Author;
+use MrsAbbott::Config;
+use MrsAbbott::Pseudonym;
+use MrsAbbott::Title;
+
+my $query = new CGI;
+print $query -> header;
+
+$HTML_HEAD =~ s/::TITLE:://;
+$HTML_HEAD =~ s/::AUTHOR:://;
+print $HTML_HEAD;
+
+
+if ($query->param('editauthor')) {
+
+    # Edit an author's name, perhaps after entering it but making
+    # a typo.
+
+    my $authorID = $query->param('authorid');
+    my ($firstName, $lastName) = getAuthorInfo ($authorID);
+    my $authorName = formatAuthorName ($firstName, $lastName);
+
+    print qq(<h2>$authorName</h2>\n);
+    
+    print "<h3>Editing Name</h3>\n";
+
+    unless ($query->param('lastName')) {
+
+	# Print out the first form.
+
+	print qq(<form action="/cgi-bin/author" method="post">\n);
+	print "<table>\n";
+	print "<tr><th>&nbsp;</th><th>First</th><th>Last</th></tr>\n";
+	print "<tr>\n";
+	print "<td>Name:</td>\n";
+	print qq(<td><input type="text" size="19" 
+		 value="$firstName" name="firstName" /></td>\n);
+	print qq(<td><input type="text" size="19" 
+		 value="$lastName" name="lastName" /></td>\n);
+	print "</tr>\n</table>\n";
+	print "<p>\n";
+     	print qq(<input type="hidden" name="authorid" value="$authorID" />);
+	print qq(<input type="submit" name="editauthor" 
+		 value="Edit Name" />\n);
+	print "</p>\n";
+	print qq(</form>\n);
+
+    } else {
+
+	# We know the revised name, so enter it into the database.
+
+	my $newFirstName  = $query->param('firstName');
+	my $newLastName   = $query->param('lastName');
+	my $newAuthorName = formatAuthorName ($newFirstName, $newLastName);
+
+	my $isKnownID = findAuthorByNames ($newFirstName, $newLastName);
+	my $rowsAffected;
+
+	if ($isKnownID) {
+		
+	    print "<p>$newAuthorName is known (ID $isKnownID). ", 
+	    $rowsAffected = replaceAuthor ($authorID, $isKnownID);
+	    $authorID = $isKnownID;
+
+	} else {
+
+	    print "<p>$newAuthorName is a new author! ";
+	    $rowsAffected = editAuthorName 
+	       ($authorID, $newFirstName, $newLastName);
+
+	}
+
+	print "$rowsAffected row(s) affected. ";
+	print "$authorName changed to <b>$newAuthorName</b>.</p>\n";
+
+	print "<p>\n";
+	print qq(View 
+	     <a href="/cgi-bin/author?authorid=$authorID">$newAuthorName</a>);
+	print ".</p>\n";
+
+
+    }
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+# For dealing with looking at authors.
+
+if ($query -> param('authorid')) {
+
+    my $authorID = $query->param('authorid');
+
+    my $authorName = formatAuthorName (getAuthorInfo ($authorID));
+
+    print qq(<h2>$authorName</h2>\n);
+
+    my (@checkPseuds) = isPseudonymFor ($authorID);
+
+    if (@checkPseuds) {
+
+	print "<h3>Real Name</h3>\n";
+
+	print "<ul>\n";
+
+	foreach my $realAuthorID (@checkPseuds) {
+
+	    print qq(<li><a href="/cgi-bin/author?authorid=$realAuthorID">) .
+	       formatAuthorName (getAuthorInfo ($realAuthorID)) .
+	       qq(</a>\n);
+	    print "</li>\n";
+
+	}
+
+	print "</ul>\n";
+
+    }
+
+    my (@usesAsPseuds) = listPseudonymsOf ($authorID);
+
+    if (@usesAsPseuds) {
+
+	print "<h3>Pseudonyms</h3>\n";
+
+	# This author has a pseudonym (or several).  Make a list.
+
+	print "<ul>\n";
+
+	foreach my $pseudID (@usesAsPseuds) {
+
+	    print qq(<li><a href="/cgi-bin/author?authorid=$pseudID">) .
+	       formatAuthorName (getAuthorInfo ($pseudID)) .
+	       qq(</a>\n);
+	    print "</li>\n";
+
+	}
+
+	print "</ul>\n";
+
+    }
+
+    print "<h3>Titles</h3>\n";
+
+    my (%titleHash);
+    getTitlesByAuthorID (\%titleHash, $authorID);
+
+    print "<ol>\n";
+
+    foreach my $titleID 
+       (sort # Alphabetical by title, within that, edition
+	{ ($titleHash{$a}{'title'} eq $titleHash{$b}{'title'}) ?
+	     return $titleHash{$a}{'edition'} <=> $titleHash{$b}{'edition'} :
+	     return $titleHash{$a}{'title'} cmp $titleHash{$b}{'title'};
+        } keys %titleHash) {
+
+	my $niceTitle = formatTitle ($titleHash{$titleID}{'article'},
+				     $titleHash{$titleID}{'title'},
+				     $titleHash{$titleID}{'edition'});
+	print qq(<li> <a href="/cgi-bin/title?titleid=$titleID">$niceTitle</a>\n);
+	print "</li>\n";
+
+    }
+
+    print "</ol>\n";
+
+    print qq(<div style="float: left;">\n);
+    print qq(<form action="/cgi-bin/author" method="post">\n);
+    print "<p>\n";
+    print qq(<input type="hidden" name="authorid" value="$authorID" />\n);
+    print qq(<input type="submit" name="editauthor" value="Edit Name" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+
+    print "</div>\n";
+
+    # Could wrap this in
+    #   unless (@checkPseuds) { }
+    # if writers could only have one pseudonym, but they can have many.
+
+    print qq(<div>\n);
+    print qq(<form action="/cgi-bin/pseuds" method="post">\n);
+    print "<p>\n";
+    print qq(<input type="hidden" name="authorid" value="$authorID" />\n);
+    print qq(<input type="submit" name="addpseud" 
+	     value="Add Pseudonym" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+    print "</div>\n";
+	
+    print $HTML_FOOT;
+
+    exit;
+
+}
+
+

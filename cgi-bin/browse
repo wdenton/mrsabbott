@@ -1,0 +1,177 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: browse,v 1.3 2005/04/17 14:52:05 buff Exp $
+# $Author: buff $
+# $RCSfile: browse,v $
+# Current $Revision: 1.3 $
+# Current $Date: 2005/04/17 14:52:05 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape unescape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+
+use MrsAbbott;
+use MrsAbbott::Config;
+use MrsAbbott::Author;
+#use MrsAbbott::Pseudonym;
+#use MrsAbbott::Series;
+use MrsAbbott::Title;
+
+my $query = new CGI;
+
+print $query->header;
+print $HTML_HEAD;
+
+use vars qw($titleID %titleHash);
+
+if ($query->param('class')) {
+
+    my $class = $query->param('class');
+    my $highlightID = $query->param('highlightid') || 0;
+
+    print "<h2>Class $class ($lcSubClasses{$class})</h2>\n";
+
+    my $dbh = DBI->connect($dataSource, $userName, $password)
+       or die "Couldn't connect to database: " . DBI->errstr;
+
+    my $sth = $dbh->prepare(qq(
+SELECT * FROM title WHERE callNumber LIKE "$class%"
+AND callNumber NOT LIKE "FIC%"))
+       or die "Couldn't prepare statement: " . $dbh -> errstr;
+
+    $sth -> execute
+       or die "Couldn't execute statement: " . $sth -> errstr;
+
+    while (my $hashRef = $sth->fetchrow_hashref) {
+	$titleHash{$hashRef->{'id'}} = $hashRef;
+    }
+
+    $sth->finish;
+    $dbh->disconnect;
+
+    $class = '';
+    print "<ul>\n"; # Wasteful, but no-one will see it.
+    # We could get around this by using a counter to see if we're
+    # at the very start of a listing or not, then testing for it
+    # in the loop below.
+
+    foreach $titleID (sort byCallNum keys %titleHash) {
+
+	# Comparing the call letter of the current book to the
+	# previous book lets us split up the listings by call
+	# letter into sections.  How the Library of Congress system
+	# works is much easier to see this way.
+
+	my ($titleCallLetter) =
+	   ($titleHash{$titleID}{'callNumber'} =~ m/^([a-z]*) .*/i);
+
+	unless ($class eq $titleCallLetter) {
+	        print "</ul>\n<h3>$titleCallLetter " .
+		   (defined $lcSubClasses{$titleCallLetter} ?
+		            "($lcSubClasses{$titleCallLetter})": "") .
+		   "</h3>\n";
+		print "<ul>\n";
+		$class = $titleCallLetter;
+	}
+
+	my $bookTitle = formatTitle ($titleHash{$titleID}{'article'},
+				     $titleHash{$titleID}{'title'},
+				     $titleHash{$titleID}{'edition'});
+
+	$bookTitle = "<big>$bookTitle</big>" if $titleID == $highlightID;
+
+	my ($cutter) = 
+	   ($titleHash{$titleID}{'callNumber'} =~ m/^.* (\d*)\..*/);
+
+	print "<li> "; # Can print $cutter here if you want.
+	print qq(<a href="/cgi-bin/title?titleid=$titleID">$bookTitle</a>);
+	print " <small>($titleHash{$titleID}{'callNumber'})</small>\n";
+	print "</li>\n";
+
+    }
+
+
+    print "</ul>\n";
+
+}
+
+print $HTML_FOOT;
+
+
+
+sub byCallNum {
+
+
+    my ($call1, $number1, $sub1) = 
+       ($titleHash{$a}{'callNumber'} =~ m/([a-z]*) ([\d\.]*)\.(.*)/i);
+
+    # print "  $a = $call1, $number1, $sub1\n";
+
+    my ($call2, $number2, $sub2) = 
+       ($titleHash{$b}{'callNumber'} =~ m/([a-z]*) ([\d\.?]*)\.(.*)/i);
+
+    # print "  $b = $call2, $number2, $sub2\n";
+
+    # Are the call letters the same?
+    unless ($call1 eq $call2) {
+	return ($call1 cmp $call2);
+    }
+
+    # Are the numbers the same?
+    unless ($number1 == $number2) {
+	return ($number1 <=> $number2);
+    }
+
+    # No we're down to the letter-number combinations at the end.
+    # I don't know their real name.
+
+    my @subs1 = split (/[ \.]/, $sub1);
+    my @subs2 = split (/[ \.]/, $sub2);
+
+    my $fields = $#subs1 > $#subs2 ? $#subs1 : $#subs2;
+
+    foreach (0 .. $fields) {
+
+        my ($l1, $n1) = ($subs1[$_] =~ m/([a-z]*)(\d*)/i);
+        my ($l2, $n2) = ($subs2[$_] =~ m/([a-z]*)(\d*)/i);
+
+        next if ($l1 eq $l2) && ($n1 eq $n2);
+        return ($l1 cmp $l2) || ($n1 <=> $n2);
+
+    }
+
+    # If the call numbers are identical (as happens when a book
+    # comes in two volumes), then compare the titles, where they'll
+    # be distinguised by (v 1) and (v 2), etc.
+
+    return ($titleHash{$a}{'title'} cmp $titleHash{$b}{'title'});
+
+    # This doesn't work when there are more than 9 volumes, though!
+
+
+#      my @call1 = split (/[ \.]/, $titleHash{$a}{'callNumber'});
+#      my @call2 = split (/[ \.]/, $titleHash{$b}{'callNumber'});
+
+#      my $fields = $#call1 > $#call2 ? $#call1 : $#call2;
+
+#      foreach (0 .. $fields) {
+#    	my ($l1, $n1) = ($call1[$_] =~ m/([a-z]*)(\d*)/i);
+#    	my ($l2, $n2) = $call2[$_] =~ m/([a-z]*)(\d*)/i;
+
+#  	next if ($l1 eq $l2) && ($n1 eq $n2);
+#  	return ($l1 cmp $l2) || ($n1 <=> $n2);
+
+#      }
+
+#      # If the call numbers are identical (as happens when a book
+#      # comes in two volumes), then compare the titles, where they'll
+#      # be distinguised by (v 1) and (v 2), etc.
+
+#      return ($titleHash{$a}{'title'} cmp $titleHash{$b}{'title'});
+
+}

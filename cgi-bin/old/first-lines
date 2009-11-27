@@ -1,0 +1,101 @@
+#!/usr/local/bin/perl -w
+
+use strict;
+use DBI;
+use CGI qw(escape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+use MrsAbbott;
+
+srand;
+
+my $booksInGame = 5;
+
+my $query = new CGI;
+print $query -> header;
+print $HTML_HEAD;
+
+print qq(<h2 align="center">The First Lines Guessing Game!</h2>\n);
+
+# Get a list of all the books that have known first lines.
+
+my $dbh = DBI->connect($dataSource, $userName, $password)
+   or die "Couldn't connect to database: " . DBI->errstr;  
+
+my $sth = $dbh->prepare(q(
+SELECT id, firstLine FROM title WHERE firstLine NOT LIKE ""))
+   or die "Couldn't prepare statement: " . $dbh -> errstr;   
+
+$sth -> execute 
+   or die "Couldn't execute statement: " . $sth -> errstr;
+
+my %firstLines;
+
+while (my $hashRef = $sth->fetchrow_hashref) {
+    $firstLines{$hashRef->{'id'}} = $hashRef->{'firstLine'};
+}
+
+$sth->finish;
+$dbh->disconnect;
+
+# Pick five at random.
+
+my @idNumbers = keys %firstLines;
+my $booksWithFirstLines = scalar @idNumbers;
+
+print <<"TOP";
+<p>
+$booksWithFirstLines books have known first lines.
+Match up the number of the title on the left with the quote on the
+right, and test your first line knowledge!
+</p>
+
+TOP
+
+my @bookIDs;
+
+while ($#bookIDs < $booksInGame) {
+
+    my $random = int rand ($booksWithFirstLines);
+    push @bookIDs, $idNumbers[$random] unless 
+       grep /$idNumbers[$random]/, @bookIDs; 
+
+}
+
+print qq(
+<form action="/cgi-bin/first-lines">
+<table cellspacing="3" cellpadding="3">
+<tr>
+<th>#</th>
+<th>Title</th>
+<th>First Line</th>
+<th>?</th>
+</tr>
+);
+
+my $i = 1;
+
+foreach my $bookID (@bookIDs) {
+
+    my $niceTitle = newFormatTitle ($bookID);
+
+    # print "$bookID: $niceTitle = $firstLines{$bookID}\n";
+    print "<tr>\n";
+    print qq(<td valign="top">$i</td>\n);
+    print qq(<td valign="top">$niceTitle</td>);
+    print qq(<td valign="top">$firstLines{$bookID}</td>\n);
+    print qq(<td valign="top"><select name="guess_$i">\n);
+    for (1..$booksInGame) {
+	print qq(<option name="$i" value="$_"> $_</option>\n);
+    }
+    print qq(</select></td>);
+    print "</tr>\n";
+    $i++;
+}
+
+print "</table>\n";
+print "</form>\n";
+
+print $HTML_FOOT;
+
+

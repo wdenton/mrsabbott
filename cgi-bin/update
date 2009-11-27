@@ -1,0 +1,606 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: update,v 1.3 2003/05/31 15:36:19 buff Exp $
+# $Author: buff $
+# $RCSfile: update,v $
+# Current $Revision: 1.3 $
+# Current $Date: 2003/05/31 15:36:19 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+use MrsAbbott;
+use MrsAbbott::Author;
+use MrsAbbott::Config;
+use MrsAbbott::Pseudonym;
+use MrsAbbott::Series;
+use MrsAbbott::Title;
+
+use vars qw($errorMsg $dbh $sth);
+
+my $query = new CGI;
+print $query -> header;
+
+$HTML_HEAD =~ s/::TITLE:://;
+$HTML_HEAD =~ s/::AUTHOR:://;
+print $HTML_HEAD;
+
+unless ($query->param) { 
+
+    # Must be we want to start from scratch, so print a blank form.
+
+    print qq(<h2>Add a New Book</h2>\n);
+
+    print qq(<form action="/cgi-bin/update" method="post">\n);
+
+    printBookForm ();
+
+    print "<p>\n";
+    print qq(<label title="Enter book into catalogue">);
+    print qq(<input type="submit" name="updatebook" value="Add Book" />\n);
+    print "</label>\n";
+    print "</p>\n";
+    print "</form>\n";
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+if ($query->param('editbook')) {
+
+    # We want to edit an existing book, so print out the usual
+    # form, but fill in the fields with the existing values.  Then
+    # any minor edits may be made, and the results will be submitted
+    # back to this script ... but since it'll have an ID number,
+    # it'll be treated differently below.
+
+    my $titleID = $query->param('titleid');
+
+    # First, find out what we can about this book from the database.
+
+    my %titleHash;
+    getTitleInfo (\%titleHash, $titleID);
+
+    my $bookTitle = newFormatTitle ($titleID);
+
+    print "<h2>Editing <cite>$bookTitle</cite> ($titleID)</h2>\n";
+
+    print qq(<form action="/cgi-bin/update" method="post" />\n);
+
+    # First, list the authors.  If you want to remove an author
+    # from a book, then this is the place to do it.
+
+    my @authorList = getAuthorsByTitleID ($titleID);
+
+    print "<h3>Remove Author" . (scalar @authorList > 1 ? "s" : "" ) .
+       "?</h3>\n";
+
+    print "<ul>\n";
+
+    foreach my $authorID (@authorList) {
+
+	print "<li>" . formatAuthorName (getAuthorInfo ($authorID)) . "\n";
+	print qq(<input type="checkbox" name="deleteauthor" 
+		  value="$authorID" />);
+	print "</li>\n";
+
+    }
+
+    print "</ul>\n";
+
+    printBookForm (\%{$titleHash{$titleID}});
+
+    print "<p>\n";
+    print qq(<label title="Update book's information in catalogue">);
+    print qq(<input type="submit" name="updatebook" value="Update Book" />\n);
+    print "</label>\n";
+    print "</p>\n";
+    print "</form>\n";
+
+    print qq(<form action="/cgi-bin/update" method="post">\n);
+    print "<p>\n";
+    print qq(<label title="Delete this book from the catalogue">);
+    print qq(<input type="submit" name="deletetitle" 
+	     value="Delete Book" />\n);
+    print "</label>\n";
+    print qq(<input type="hidden" name="titleid" value="$titleID" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+if ($query->param('updatebook')) {
+
+    # We want to update the database entry for a book--which includes
+    # adding a new book.
+
+    # The process: 
+    # - if it's an update, just do an update
+    # - otherwise it's a new book
+    # - check all the given information about the book
+    #   - if there is a title that matches all that information,
+    #     assume it's a duplicate; report on it and demand some
+    #     extra information to distinguish the new book from the 
+    #     existing one
+    # - check the author
+    #   - if the author is in the database, fine
+    #   - if not, add him
+    # - insert all the information about the title into the database
+    # - tie the author's ID number to the title's ID number in
+    #   the hasWritten table
+
+    my ($newAuthorID, $newTitleID);
+
+    if ($query->param('id')) {
+
+	# Update an existing book.  We know its ID number, it's 
+	# already in the database.
+
+	$newTitleID = $query->param('id');
+	my $bookTitle = newFormatTitle ($newTitleID);
+	
+	print "<h2>Updating <cite>$bookTitle</cite> (ID $newTitleID)</h2>\n";
+
+	# Do we need to remove an author from this title?
+
+	if ($query->param('deleteauthor')) {
+
+	    # Yes, we do!
+
+	    my $dbh = DBI->connect($dataSource, $userName, $password)
+	       or print "<strong>Error</strong> " .
+	                "Couldn't connect to database: " . DBI->errstr;  
+
+	    my $sth = $dbh->prepare("
+DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
+
+	    foreach my $authorID ($query->param('deleteauthor')) {
+
+		# print "Deleting author $authorID<br>\n";
+		$sth->execute ($authorID, $newTitleID);
+
+	    }
+	    
+	    $dbh->disconnect;
+	    
+	}
+
+	# There's no more to be done with this author.  Any existing
+	# authors are already tied to this title ID in the hasWritten
+	# table and they can just stay there.  From here on it's just
+	# a pure update.
+
+	my $dbUpdate = "UPDATE title SET ";
+
+	$dbh = DBI->connect($dataSource, $userName, $password)
+	   or print "<strong>Error</strong> " .
+	            "Couldn't connect to database: " . DBI->errstr;  
+
+	my @updates;
+
+	foreach my $key (sort keys %titleFields) {
+
+	    (my $keyname = $key) =~ s/^\d+//;
+	    next if $keyname eq "id";
+	    my $value = length ($query->param($keyname)) ? 
+	       $dbh->quote($query->param($keyname)) : qq(NULL);
+	    push (@updates,  "$keyname=$value");
+		
+	}
+
+	$dbUpdate .= join (",", @updates);
+	$dbUpdate .= " WHERE id = '$newTitleID'";
+
+	# print "<p>dbUpdate = $dbUpdate</p>\n";
+
+	my $rowsAffected = $dbh->do($dbUpdate) 
+	   or print "<strong>Error</strong>: " .
+	            "Couldn't execute statement: " . $dbh -> errstr;   
+
+	$dbh->disconnect;
+
+    } else {
+
+	# First, check to see if this book already exists in the 
+	# database.  We might as well do this before checking on
+	# the author because this will flag an error and send
+	# the form back to the user, so there's not really much
+	# point in doing any work before that because it'll just
+	# be wasted or happen over again next time, when the data's
+	# resubmitted.
+	#
+	# It would be nice if the checking went a bit further and,
+	# given the title of the book you're adding, looked to see
+	# if there were any other books of the same title.  This
+	# is a better check than just making sure the new title
+	# is uniquely identified.
+
+	print "<h2>Adding a new book to the catalogue</h2>\n";
+
+	$errorMsg = "No title!"              unless $query->param('title');
+	$errorMsg = "No author's last name!" unless $query->param('lastName');
+	$errorMsg = "No call number!"       unless $query->param('callNumber');
+
+	if ($errorMsg) {
+	    # print $HTML_HEAD;
+	    print $errorMsg;
+	    print $HTML_FOOT;
+	    exit;
+	}
+
+	my $dbh = DBI->connect($dataSource, $userName, $password)
+	   or print "<strong>Error</strong> " .
+	            "Couldn't connect to database: " . DBI->errstr;  
+
+	my $dbQuery = qq(SELECT id FROM title WHERE title = ) .
+	   $dbh->quote($query->param('title'));
+
+	foreach my $key (sort keys %titleFields) {
+
+	    (my $keyname = $key) =~ s/^\d+//;
+	    next if $keyname eq 'title'; # That's our primary search field
+	    next unless $query->param("$keyname");
+	    $dbQuery .= qq( AND $keyname = \") . 
+	       $dbh->quote($query->param("$keyname")) . qq(\");
+
+	}
+
+	my $sth = $dbh->prepare($dbQuery)
+	   or print "<strong>Error</strong> " .
+	            "Couldn't prepare statement: " . $dbh -> errstr;   
+
+	$sth -> execute
+	   or  print "<strong>Error</strong> " .
+	       "Couldn't execute statement: " . $sth -> errstr;
+
+	my @matchingTitleIDs;
+ 	while (my @data = $sth -> fetchrow_array()) {
+	    push @matchingTitleIDs, $data[0];
+	}
+
+	$sth->finish;
+	$dbh->disconnect;
+
+	if (scalar @matchingTitleIDs > 0) { # A match!
+
+	    print "<p>The given information matches with an existing ";
+	    print "book! You'll need to go back and add more information ";
+	    print "until it is uniquely identified.</p>\n";
+
+	    print "<ul>\n";
+
+	    foreach my $titleID (@matchingTitleIDs) {
+
+		print qq(<li> <a href="/cgi-bin/title?titleid=$titleID">) . 
+		   "<cite>" . newFormatTitle ($titleID) . qq(</cite></a>\n);
+		print "</li>\n";
+
+	    }
+
+	    print "</ul>\n";
+
+	    print $HTML_FOOT;
+	    exit;
+
+	} else {
+
+	    # This doesn't match anything existing in the database,
+	    # so go ahead an enter it.  It's a new book!  Wahoo!
+
+	    # First, handle the author.  If new, add in; if not,
+	    # just make a note of the ID number.
+
+	    # Note that I'm making the assumption that every
+	    # author has a unique name.  If two authors have the
+	    # same name, they'll be treated as the same person.
+	    # What would be nice in the future is to offer a
+	    # "Browse Known Authors" function, and some way of
+	    # distinguishing authors who share the same name.
+	    
+	    my $firstName = $query->param('firstName');
+	    my $lastName  = $query->param('lastName');
+
+	    my $isKnownID = findAuthorByNames ($firstName, $lastName);
+	    my $authorName = formatAuthorName ($firstName, $lastName);
+
+	    my $authorID;
+
+	    print "<p>\n";
+
+	    if ($isKnownID) {
+
+		$authorID = $isKnownID;
+		print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
+		   qq($authorName</a> is known (ID $isKnownID). ); 
+
+	    } else {
+
+		
+		$authorID = insertAuthor ($firstName, $lastName);
+		print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
+		   qq($authorName</a> is a new author! );
+		print "Created (ID $authorID). ";
+
+	    }
+
+	    # So now the author is taken care of. Next, actually add
+	    # in the book.
+
+	    my (@columns, @values);
+
+	    foreach my $key (sort keys %titleFields) {
+
+		(my $keyname = $key) =~ s/^\d+//;
+		next unless $query->param($keyname);
+		push @columns, $keyname;
+		push @values, $dbh->quote($query->param($keyname));
+		
+	    }
+
+	    my $dbInsert = "INSERT INTO title " . "(" .
+	       (join ",", @columns) . ") VALUES (" .
+	       (join ",", @values)  . ")";
+
+	    $dbh = DBI->connect($dataSource, $userName, $password)
+	       or print "<strong>Error</strong> " .
+	                "Couldn't connect to database: " . DBI->errstr;  
+
+	    $dbh->do($dbInsert)
+	       or print "<strong>Error</strong> " .
+	                "Couldn't prepare statement: " . $dbh -> errstr;   
+    
+	    $newTitleID = $dbh->{'mysql_insertid'};
+	    $dbh->disconnect;
+
+	    print "Book added to database (ID $newTitleID). ";
+
+	    # And last, connect the author to the title.
+
+	    my $hasWrittenID = 
+	       connectAuthorToTitle ($authorID, $newTitleID);
+
+	    print "Author tied to title (ID $hasWrittenID).</p>\n";
+
+	}
+
+    }
+
+    print "<p>\n";
+    print qq(View <a href="/cgi-bin/title?titleid=$newTitleID"><cite>) . 
+       newFormatTitle ($newTitleID) . qq(</cite></a>.\n);
+    print "</p>\n";
+
+    # print $query->dump;
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+if ($query->param('deletetitle')) {
+
+    # Completely remove a title from the catalogue.  There's no 
+    # check on this, so watch out, because if you choose this it's
+    # gone.  
+
+    my $titleID = $query->param('titleid');
+    my $bookTitle = newFormatTitle ($titleID);
+
+    my @authorList = getAuthorsByTitleID ($titleID);
+
+    print "<h3>Deleting <cite>$bookTitle</cite> (ID $titleID)</h3>\n";
+
+    # First, delete the record from the title table.
+
+    my $dbh = DBI->connect($dataSource, $userName, $password)
+       or print "<strong>Error</strong> " .
+                "Couldn't connect to database: " . DBI->errstr;  
+
+    my $rowsAffected  = $dbh->do("DELETE FROM title WHERE id = $titleID");
+
+    print "<p>Deleted from title table, $rowsAffected rows affected. ";
+
+    $rowsAffected  = $dbh->do("
+DELETE FROM hasWritten WHERE titleRef = $titleID");
+
+    print "Removed from hasWritten table, $rowsAffected rows affected. ";
+
+    $dbh->disconnect;
+
+    # Is the book in a series?  If so, we need to take care of that.
+
+    my %seriesHash = ();
+    getSeriesByTitleID (\%seriesHash, $titleID);
+
+    # Right now %seriesHash will only have one key, if a book is in
+    # a series, because a book can only be in one series, but when
+    # that changes this won't need to be updated.  Although it would
+    # need to be updated if the way the hash is set up is changed ...
+    # but you get the picture.
+
+    foreach my $seriesID (keys %seriesHash) {
+
+	# The book is in a series!  Delete it from that series.
+	my $seriesName    = $seriesHash{$seriesID}{'name'};
+	my $placeInSeries = $seriesHash{$seriesID}{'placeInSeries'};
+
+	$dbh = DBI->connect($dataSource, $userName, $password)
+	   or print "<strong>Error</strong> " .
+	            "Couldn't connect to database: " . DBI->errstr;  
+
+	# titleID and seriesID will be sufficient to identify the
+	# right entry.  No book will be in the same series twice.
+
+	$rowsAffected  = $dbh->do("
+DELETE FROM isInSeries WHERE titleRef = $titleID AND seriesRef = $seriesID");
+
+	print "Deleted from series table, $rowsAffected rows affected. ";
+
+	$dbh->disconnect;
+
+    }
+
+    # So that takes care of the series.
+
+    print "The book has been deleted from the catalogue.</p>\n";
+
+    # Now we're done, and we should give the user some place to go.
+    # Helpful if you're deleting more than one title by the same
+    # author, for example.
+
+    print "<h3>Author" . (scalar @authorList > 1 ? "s" : "" ) .
+       "</h3>\n";
+
+    print "<ul>\n";
+
+    foreach my $authorID (@authorList) {
+
+	print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) . 
+	   formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
+	print "</li>\n";
+
+    }
+
+    print "</ul>\n";
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+if ($query->param('authoradd')) {
+
+    # Adding an author to a book, since some books do have more than
+    # one.  When adding a book with more than one author, enter one
+    # author with the information about the book, then use this to
+    # add more authors.
+
+    my $titleID = $query->param('titleid');
+    my $bookTitle = newFormatTitle ($titleID);
+
+    print "<h2>Adding An Author</h2>\n";
+
+    unless ($query->param('lastName')) {
+
+	# Print out the form asking for the name of the 
+	# new author of this book.
+
+	print "<h3>Adding Author to <cite>$bookTitle</cite></h3>\n";
+
+	# Just as we do in the title script, we'll list all the known
+	# authors of this book, so people won't wonder if the name
+	# they're entering is already there.
+
+	my @authorList = getAuthorsByTitleID ($titleID);
+
+	print "<h3>Known Author" . 
+	   (scalar @authorList > 1 ? "s" : "" ) . "</h3>\n";
+
+	print "<ul>\n";
+
+	foreach my $authorID (@authorList) {
+
+	    print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) . 
+	       formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
+
+	    my (@checkPseuds) = isPseudonymFor ($authorID);
+	    
+	    foreach my $realAuthorID (@checkPseuds) {
+	    
+		print qq(\(<a href="/cgi-bin/author?authorid=$realAuthorID">) .
+		   formatAuthorName (getAuthorInfo ($realAuthorID)) .
+		      qq( </a>\)\n);
+		print "</li>\n";
+
+	    }
+	    
+	}
+
+	print "</ul>\n";
+
+	print "<h3>New Author</h3>\n";
+
+	print qq(<form action="/cgi-bin/update" method="post" />);
+	print "<table>\n";
+	print "<tr><th>&nbsp;</th><th>First</th><th>Last</th></tr>\n";
+	print "<td>Name:</td>\n";
+	print qq(<td><input type="text" size="19" name="firstName" /></td>);
+	print qq(<td><input type="text" size="19" name="lastName" /></td>);
+	print "</tr></table>\n";
+	print "<p>\n";
+	print qq(<input type="hidden" name="titleid" value="$titleID" />);
+	print qq(<input type="submit" name="authoradd" 
+		 value="Add Author" />\n);
+	print "</p>\n";
+	print qq(</form>\n);
+
+    } else {
+
+	# We know who the new author is, so let's add them
+	# in.  This bit is the same code as is used when
+	# adding in a new book, above.
+
+	# I suppose we might get this bit if we try adding
+	# in a new author without a lastname, but all
+	# authors should have last names, so that works out.
+
+	my $firstName = $query->param('firstName');
+	my $lastName  = $query->param('lastName');
+
+	my $isKnownID = findAuthorByNames ($firstName, $lastName);
+	my $authorName = formatAuthorName ($firstName, $lastName);
+
+	print "<h3>Added $authorName to $bookTitle</h3>\n";
+
+	my $authorID;
+
+	if ($isKnownID) {
+		
+	    $authorID = $isKnownID;
+
+	    print "<p>\n";
+	    print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
+	       qq($authorName</a> is known (ID $isKnownID). \n); 
+
+	} else {
+
+	    $authorID = insertAuthor ($firstName, $lastName);
+
+	    print "<p>\n";
+	    print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
+	       qq($authorName</a> is a new author! );
+	    print "Created (ID $authorID).\n";
+
+	}
+
+	# And as we did up above, connect the author to the title.
+
+	my $hasWrittenID = 
+	   connectAuthorToTitle ($authorID, $titleID);
+
+	print "Author tied to title (ID $hasWrittenID).</p>\n";
+
+
+	print "<p>\n";
+	print qq(View <a href="/cgi-bin/title?titleid=$titleID">) . 
+	   newFormatTitle ($titleID) . qq(</a>.\n);
+	print "</p>\n";
+
+    }
+
+    print $HTML_FOOT;
+    
+    exit;
+
+}

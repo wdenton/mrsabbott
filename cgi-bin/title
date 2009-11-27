@@ -1,0 +1,224 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: title,v 1.4 2004/03/04 00:26:15 buff Exp $
+# $Author: buff $
+# $RCSfile: title,v $
+# Current $Revision: 1.4 $
+# Current $Date: 2004/03/04 00:26:15 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape unescape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+
+use MrsAbbott;
+use MrsAbbott::Config;
+use MrsAbbott::Author;
+use MrsAbbott::Pseudonym;
+use MrsAbbott::Series;
+use MrsAbbott::Title;
+
+my $query = new CGI;
+print $query -> header;
+
+$HTML_HEAD =~ s/::TITLE:://;
+$HTML_HEAD =~ s/::AUTHOR:://;
+print $HTML_HEAD;
+
+# For looking at titles.
+
+if ($query -> param('titleid')) {
+
+    my $titleID = $query->param('titleid');
+
+    my %titleHash;
+
+    getTitleInfo (\%titleHash, $titleID);
+
+    my $bookTitle = newFormatTitle ($titleID);
+
+    print qq(<h2><cite>$bookTitle</cite></h2>\n);
+
+    # Brief interruption in processing the title information, while we
+    # find out who wrote the book.
+
+    my @authorList = getAuthorsByTitleID ($titleID);
+
+    print "<h3>Author" . (scalar @authorList > 1 ? "s" : "" ) .
+       "</h3>\n";
+
+    print "<ul>\n";
+
+    foreach my $authorID (@authorList) {
+
+	# This loop should be sorted by the last name of the author.
+
+	print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
+	   formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
+
+	my (@checkPseuds) = isPseudonymFor ($authorID);
+
+	foreach my $realAuthorID (@checkPseuds) {
+
+	    print qq(\(<a href="/cgi-bin/author?authorid=$realAuthorID">) .
+	       formatAuthorName (getAuthorInfo ($realAuthorID)) .
+	       qq(</a>\)\n);
+
+	}
+
+	print "</li>\n";
+
+    }
+
+    print "</ul>\n";
+
+    print "<p>$titleHash{$titleID}{'callNumber'}</p>\n";
+    print "<p>$titleHash{$titleID}{'publisher'} " .
+	  "($titleHash{$titleID}{'format'}) ";
+
+    if ($titleHash{$titleID}{'isbn'}) {
+	print "$titleHash{$titleID}{'isbn'} ";
+    }
+
+    if ($titleHash{$titleID}{'pubFirst'}) {
+	print "$titleHash{$titleID}{'pubFirst'}";
+    }
+    print " / ";
+
+    if ($titleHash{$titleID}{'pubYear'}) {
+	print "$titleHash{$titleID}{'pubYear'}";
+    }
+
+    print "</p>\n";
+
+
+    if ($titleHash{$titleID}{'purchaseDate'}) {
+
+	print "<p>\n";
+	print "Purchased:  $titleHash{$titleID}{'purchaseDate'} ";
+
+	if ($titleHash{$titleID}{'purchaseCost'}) {
+	    print "(\$$titleHash{$titleID}{'purchaseCost'})";
+	}
+
+	print "</p>\n";
+
+    }
+
+    print "<p>First line: $titleHash{$titleID}{'firstLine'}</p>\n";
+
+    if ($titleHash{$titleID}{'notes'}) {
+	print "<p>Notes: $titleHash{$titleID}{'notes'}</p>\n";
+    }
+
+    # Sort of complicated way of going through the title fields,
+    # but it makes sure they come out in the order we want,
+    # and it lets us use a hash instead of a list.
+
+    # It also shows a lot of ugly stuff we needn't display, so
+    # I took this out and did the it long way.
+
+#     print qq(<table border="0">\n);
+
+#     foreach my $key (sort keys %titleFields) {
+
+#        (my $keyname = $key) =~ s/^\d+//;
+
+#        print "<tr>\n";
+#        print qq(<td class="titleleft">$titleFields{$key}</td>\n);
+#        print qq(<td class="titleright">);
+#        print defined $titleHash{$titleID}{$keyname} ? 
+# 	      $titleHash{$titleID}{$keyname} : "&nbsp;";
+#        print "</td>\n";
+#        print "</tr>\n";
+#        print "\n";
+
+#     }
+
+    # Is the book part of a series?
+
+    my %seriesHash;
+    getSeriesByTitleID (\%seriesHash, $titleID);
+
+    # keys returns a list, but that's all right, because
+    # a book will only be in one series.  (If this ever changes,
+    # this bit will need to be reworked.)
+    my ($seriesID) = keys %seriesHash;
+
+    if ($seriesID) {
+
+	# Then the book is part of a series.
+	my $seriesName    = $seriesHash{$seriesID}{'name'};
+	my $placeInSeries = $seriesHash{$seriesID}{'placeInSeries'};
+
+	print "<p>\n";
+	print "Series: ";
+	print qq(<a href="/cgi-bin/series?seriesid=$seriesID">$seriesName</a> );
+	print "#$placeInSeries\n";
+	print "</p>\n";
+
+# 	print "<tr>\n";
+# 	print qq(<td class="titleleft">Series</td>\n);
+# 	print qq(<td class="titleright"><a href="/cgi-bin/series?seriesid=$seriesID">$seriesName</a></td>\n);
+# 	print "</tr>\n";
+
+# 	print "<tr>\n";
+# 	print qq(<td class="titleleft">Series No.</td>\n);
+# 	print qq(<td class="titleright">$placeInSeries</td>\n);
+# 	print "</tr>\n";
+
+    }
+
+    print "</table>\n";
+
+    # Now the editing buttons.
+
+    print "<table><tr>\n";
+
+    print "<td>\n";
+    print qq(<form action="/cgi-bin/update" method="post">\n);
+    print "<p>\n";
+    print qq(<input type="submit" name="editbook" value="Edit Book" />\n);
+    print qq(<input type="hidden" name="titleid" value="$titleID" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+    print "</td>\n";
+
+    print "<td>\n";
+    print qq(<form action="/cgi-bin/update" method="post">\n);
+    print "<p>\n";
+    print qq(<input type="submit" name="authoradd" value="Add Author" />\n);
+    print qq(<input type="hidden" name="titleid" value="$titleID" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+    print "</td>\n";
+
+    # I used to have this commented out, thinking that if a book
+    # was in a series, you wouldn't want to add it to a series,
+    # forgetting that a book can be in two series at once.
+    # if (! $seriesID) {
+
+    print "<td>\n";
+    print qq(<form action="/cgi-bin/series" method="post">\n);
+    print "<p>\n";
+    print qq(<input type="submit" name="addtoseries" 
+	     value="Add to Series" />\n);
+    print qq(<input type="hidden" name="titleid" value="$titleID" />\n);
+    print "</p>\n";
+    print qq(</form>\n);
+    print "</td>\n";
+
+    # }
+
+    print "</tr></table>\n";
+
+    print $HTML_FOOT;
+
+    exit;
+
+}
+

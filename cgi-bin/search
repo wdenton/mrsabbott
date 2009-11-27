@@ -1,0 +1,300 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: search,v 1.6 2005/04/17 14:39:26 buff Exp $
+# $Author: buff $
+# $RCSfile: search,v $
+# Current $Revision: 1.6 $
+# Current $Date: 2005/04/17 14:39:26 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+
+use MrsAbbott;
+use MrsAbbott::Config;
+use MrsAbbott::Author;
+use MrsAbbott::Series;
+use MrsAbbott::Title;
+
+my $query = new CGI;
+print $query -> header;
+
+
+if ($query -> param('search')) {
+
+    my $titleQuery  = $query->param('title')  || '';
+    my $authorQuery = $query->param('author') || '';
+
+    $HTML_HEAD =~ s/::TITLE::/$titleQuery/;
+    $HTML_HEAD =~ s/::AUTHOR::/$authorQuery/;
+    print $HTML_HEAD;
+
+    # No need to duplicate the search in the top menu bar,
+    # but if a more advanced search is added, put it here.
+    # $SEARCH_FORM =~ s/::TITLE::/$titleQuery/;
+    # $SEARCH_FORM =~ s/::AUTHOR::/$authorQuery/;
+    # print $SEARCH_FORM;
+
+    my $dbh = DBI->connect($dataSource, $userName, $password)
+       or print "<strong>Error</strong> " . 
+                "Couldn't connect to database: " . DBI->errstr;  
+
+    my ($dbQuery, $resultsMsg);
+
+    print "<h2>Search Results</h2>\n";
+
+    if ($titleQuery) { # Search first by title
+
+	my %titleHash;
+
+	$dbQuery = qq(SELECT t.* FROM title t );
+
+	# If an author's been included too, then we narrow
+	# things down a bit here, but primarily we're still
+	# looking by title.
+
+	if ($authorQuery) {
+
+	    $dbQuery .= qq(, author a, hasWritten h\n);
+
+	}
+
+	$dbQuery .= qq(WHERE t.title LIKE "%$titleQuery%"\n);
+
+	if ($authorQuery) {
+
+	    $dbQuery .= qq(
+AND (a.lastName LIKE "%$authorQuery%" OR a.firstName LIKE "%authorQuery%")
+AND h.titleRef = t.id
+AND h.authorRef = a.id);
+
+	}
+
+	my $sth = $dbh->prepare($dbQuery)
+	   or print "<strong>Error</strong> " . 
+	            "Couldn't prepare statement: " . $dbh -> errstr;   
+
+	$sth -> execute
+	   or print "<strong>Error</strong> " . 
+	            "Couldn't execute statement: " . $sth -> errstr;
+
+	while (my $hashRef = $sth->fetchrow_hashref) {
+	    $titleHash{$hashRef->{'id'}} = $hashRef;
+	}
+
+	print "Sorry, nothing matched." if ($sth->rows == 0);
+
+	$sth->finish;
+	$dbh->disconnect;
+
+	print "<ul>\n";
+
+	foreach my $titleID (sort # Alphabetical by title
+			     {$titleHash{$a}{'title'} cmp 
+				 $titleHash{$b}{'title'}}
+			     keys %titleHash) {
+
+	    my $bookTitle = newFormatTitle ($titleID);
+
+	    print qq(<li> <a href="/cgi-bin/title?titleid=$titleID"><cite>$bookTitle</cite></a>\n);
+
+	}
+
+	print "</ul>\n";
+
+
+    } elsif ($authorQuery) { # Only an author is asked for.
+
+	my %authorHash;
+
+	$dbQuery .= qq(
+SELECT * from author 
+WHERE (lastName LIKE "%$authorQuery%" OR firstName LIKE "%authorQuery%"));
+
+	my $sth = $dbh->prepare($dbQuery)
+	   or print "<strong>Error</strong> " . 
+	            "Couldn't prepare statement: " . $dbh -> errstr;   
+
+	$sth -> execute
+	   or print "<strong>Error</strong> " . 
+	            "Couldn't execute statement: " . $sth -> errstr;
+
+	while (my $hashRef = $sth->fetchrow_hashref) {
+	    $authorHash{$hashRef->{'id'}} = $hashRef;
+	}
+
+	print "Sorry, nothing matched." if ($sth->rows == 0);
+
+	$sth->finish;
+	$dbh->disconnect;
+
+	print "<ul>\n";
+
+	foreach my $authorID (sort # Alphabetical by title
+			     {$authorHash{$a}{'lastName'} cmp 
+				 $authorHash{$b}{'lastName'}}
+			     keys %authorHash) {
+
+
+
+	    print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
+	       formatAuthorName ($authorHash{$authorID}{'firstName'},
+				 $authorHash{$authorID}{'lastName'}, 1) .
+	       "</a>\n";
+	    print "</li>\n";
+
+	}
+
+	print "</ul>\n";
+
+    }
+
+    print $HTML_FOOT;
+
+    exit;
+
+}
+
+if ($query->path_info) {
+
+    $HTML_HEAD =~ s/::TITLE:://;
+    $HTML_HEAD =~ s/::AUTHOR:://;
+    print $HTML_HEAD;
+
+    # Getting a list of authors by last name.
+
+    # Strip out the leading slash.
+    (my $lastNameLetter = $query->path_info) =~ s|^/||;
+
+    print qq(<h2>Browse Authors by Last Name: $lastNameLetter</h2>\n);
+
+    my $dbh = DBI->connect($dataSource, $userName, $password)
+       or print "<strong>Error</strong> " .
+                "Couldn't connect to database: " . DBI->errstr;  
+
+    my $sth = $dbh->prepare("SELECT id FROM author 
+WHERE lastName LIKE \"$lastNameLetter%\" ORDER BY lastName, firstName")
+       or print "<strong>Error</strong> " . 
+                "Couldn't prepare statement: " . $dbh -> errstr;   
+
+    my @data;
+    $sth -> execute
+       or print "<strong>Error</strong> " . 
+                "Couldn't execute statement: " . $sth -> errstr;
+
+    print "<ul>\n";
+
+    while (@data = $sth -> fetchrow_array()) {
+
+	# Why don't I get the first and last names in the query above?
+	# It'd be more efficient.
+
+	my $authorID = $data[0];
+	my $authorName = formatAuthorName (getAuthorInfo ($authorID), '1');
+
+	print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">$authorName</a>\n);
+	print "</li>\n";
+
+    }
+
+    print "</ul>\n";
+    print $HTML_FOOT;
+
+    $sth->finish;
+    $dbh->disconnect;
+
+    exit;
+
+}
+
+# ----- Else, we print out the search form.
+
+$HTML_HEAD =~ s/::TITLE:://;
+$HTML_HEAD =~ s/::AUTHOR:://;
+print $HTML_HEAD;
+
+# If things change and a fancier search is introduced (perhaps if
+# this moves to using MARC records or something), then this can be
+# an advanced search.  Right now, there's nothing more to it than
+# appears in the top menu-bar search form that's on every page, so 
+# there's no point in reproducing it here.
+
+# print "<h2>Search the Catalogue</h2>\n";
+
+# $SEARCH_FORM =~ s/::TITLE:://;
+# $SEARCH_FORM =~ s/::AUTHOR:://;
+# print $SEARCH_FORM;
+# print "<hr />\n";
+
+print "<p>For simple searches, use the form at the top of the page.</p>\n";
+
+# ----- List of letters, to list authors by last name
+
+print <<"AUTHORS";
+<h3>List Authors By Last Name</h3>
+
+<p>
+
+AUTHORS
+
+for my $i ('A' .. 'Z') {
+    print qq(<a href="/cgi-bin/search/$i">$i</a> \n);
+}
+
+print "</p>\n";
+
+# ----- List call letters, for browsing.
+
+print <<"CALL";
+<h3>Browse Catalogue by Class Letter</h3>
+
+<p>
+
+CALL
+
+for my $i ('A' .. 'Z') {
+    print qq(<a href="/cgi-bin/browse?class=$i">$i</a> \n);
+}
+
+print "</p>\n";
+
+# ----- Pop-up menu of the series we know about.
+
+my %seriesList;
+listSeries (\%seriesList);
+
+print qq(<h3>List a Series</h3>\n);
+
+print qq(<form action="/cgi-bin/series" method="post">\n);
+
+print "<p>\n";
+
+print qq(<select name="seriesid">\n);
+
+foreach my $seriesID (sort {$seriesList{$a} cmp $seriesList{$b}}
+		      keys %seriesList) {
+
+    print qq(<option value="$seriesID"> $seriesList{$seriesID}</option>\n);
+
+}
+
+print "</select>\n";
+
+print "</p>\n";
+
+print "<p>\n";
+print qq(<input type="submit" name="listseries" value="List Series" />);
+print "</p>\n";
+
+print "</form>\n";
+
+print $HTML_FOOT;
+
+exit;
+
+

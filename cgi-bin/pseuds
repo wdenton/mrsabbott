@@ -1,0 +1,392 @@
+#!/usr/local/bin/perl -w
+
+# ----------------------------------------------------------------
+# $Id: pseuds,v 1.3 2003/05/31 15:36:01 buff Exp $
+# $Author: buff $
+# $RCSfile: pseuds,v $
+# Current $Revision: 1.3 $
+# Current $Date: 2003/05/31 15:36:01 $
+# Current $Locker:  $
+# ----------------------------------------------------------------
+
+use strict;
+use DBI;
+use CGI qw(escape unescape);
+
+use lib "/usr/local/www/server/library/cgi-bin";
+use MrsAbbott;
+use MrsAbbott::Author;
+use MrsAbbott::Config;
+use MrsAbbott::Pseudonym;
+
+my $query = new CGI;
+print $query -> header;
+
+$HTML_HEAD =~ s/::TITLE:://;
+$HTML_HEAD =~ s/::AUTHOR:://;
+print $HTML_HEAD;
+print "<h2>Pseudonyms</h2>\n";
+
+if ($query->param('listpseuds')) {
+
+    print <<"BODY";
+
+<form action="/cgi-bin/pseuds" method="post">
+<p>
+<input type="submit" value="List By Real Name" />
+</p>
+</form>
+
+BODY
+
+    print "<h3>Listed By Pseudonym</h3>\n";
+
+    my (@pseudIDs);
+
+    my $dbh = DBI->connect($dataSource, $userName, $password)
+       or die "Couldn't connect to database: " . DBI->errstr;  
+
+    my $sth = $dbh->prepare(q(
+SELECT DISTINCT pseudoNameRef FROM pseudonyms))
+       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+
+    $sth -> execute
+       or die "Couldn't execute statement: " . $sth -> errstr;
+
+    while (my @data = $sth -> fetchrow_array()) {
+	push (@pseudIDs, $data[0]);
+    }
+
+    $sth->finish;
+    $dbh->disconnect;
+
+    # Prepare the list of pseudonyms so it can be sorted.
+
+    my %pseudoNameHash;
+
+    foreach my $pseudID (@pseudIDs) {
+
+	($pseudoNameHash{$pseudID}{'firstName'},
+	 $pseudoNameHash{$pseudID}{'lastName'}) = getAuthorInfo ($pseudID);
+
+    }
+
+    print "<ul>\n";
+
+    foreach my $pseudID (sort { $pseudoNameHash{$a}{'lastName'} cmp
+			        $pseudoNameHash{$b}{'lastName'} } 
+			 keys %pseudoNameHash) {
+
+	print qq(<li>) .
+	   qq(<a href="/cgi-bin/author?authorid=$pseudID">) .
+	   formatAuthorName ($pseudoNameHash{$pseudID}{'firstName'},
+			     $pseudoNameHash{$pseudID}{'lastName'}) .
+	   qq(</a>\n);
+
+	# Their real names we'll get now, and also prepare in 
+	# advance so they can be sorted.
+
+	my (@realIDs) = isPseudonymFor ($pseudID);
+
+	my %realNameHash;
+
+	foreach my $realID (@realIDs) {
+
+	    ($realNameHash{$realID}{'firstName'},
+	     $realNameHash{$realID}{'lastName'}) = getAuthorInfo ($realID);
+	    
+	}
+	
+	print "<ul>\n";
+
+	foreach my $realID (sort { $realNameHash{$a}{'lastName'} cmp
+			           $realNameHash{$b}{'lastName'} } 
+			    keys %realNameHash) {
+
+	    print qq(<li>) .
+	       qq(<a href="/cgi-bin/author?authorid=$realID">) .
+		  formatAuthorName ($realNameHash{$realID}{'firstName'},
+				    $realNameHash{$realID}{'lastName'}) .
+		  qq(</a>\n);
+	    print "</li>\n";
+	    
+	}
+
+
+	print "</ul>\n";
+	print "</li>\n";
+
+    }
+
+    print "</ul>\n";
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+if ($query->param('addpseud')) {
+    
+    my $knownAuthorID = $query->param('authorid');
+    my ($knownFirstName, $knownLastName) = getAuthorInfo ($knownAuthorID);
+    my $knownAuthorName = formatAuthorName ($knownFirstName, $knownLastName);
+
+    if ($query->param('pseudLastName')) {
+
+	# We know a real name, and are tying it to a pseudonum.
+
+	my $pseudFirstName = $query->param('pseudFirstName');
+	my $pseudLastName  = $query->param('pseudLastName');
+	my $pseudoName = formatAuthorName ($pseudFirstName, $pseudLastName);
+
+	my $isKnownID = findAuthorByNames ($pseudFirstName, $pseudLastName);
+
+	my $pseudAuthorID;
+
+	if ($isKnownID) { # Pseudonym already in author table.
+
+	    print "<p>$pseudoName is known (ID $isKnownID).</p>\n", 
+
+	    $pseudAuthorID = $isKnownID;
+
+	} else { # Need to insert pseudonym into author table.
+
+	    print "<p>$pseudoName is a new author!\n";
+		
+	    $pseudAuthorID = insertAuthor ($pseudFirstName, $pseudLastName);
+
+	    print "Created (ID $pseudAuthorID).\n";
+
+	}
+	
+	my $pseudonymID = connectRealNameToPseudonym 
+	   ($knownAuthorID, $pseudAuthorID);
+
+	print "Link created (ID $pseudonymID).</p>\n";
+	
+	print "<p>\n";
+	print qq(View <a href="/cgi-bin/author?authorid=$pseudAuthorID">) .
+	   qq($pseudoName</a>.</p>\n);
+
+    } elsif ($query->param('realLastName')) {
+
+	# We know a pseudonym, and we're tying it to a real name.
+
+	my $realFirstName = $query->param('realFirstName');
+	my $realLastName  = $query->param('realLastName');
+	my $realName = formatAuthorName ($realFirstName, $realLastName);
+
+	my $isKnownID = findAuthorByNames ($realFirstName, $realLastName);
+
+	my $realAuthorID;
+
+	if ($isKnownID) { # Pseudonym already in author table.
+
+	    print "<p>$realName is known (ID $isKnownID).\n", 
+
+	    $realAuthorID = $isKnownID;
+
+	} else { # Need to insert pseudonym into author table.
+
+	    print "<p>$realName is a new author!\n";
+		
+	    $realAuthorID = insertAuthor ($realFirstName, $realLastName);
+
+	    print "<p>Created (ID $realAuthorID).\n";
+
+	}
+	
+	my $pseudonymID = connectRealNameToPseudonym 
+	   ($realAuthorID, $knownAuthorID);
+
+	print "Link created (ID $pseudonymID).</p>\n";
+
+	print "<p>\n";
+	print qq(View <a href="/cgi-bin/author?authorid=$realAuthorID">) .
+	   qq($realName</a>.</p>\n);
+
+    } else {
+
+	# We didn't get a last name of either a real name or a
+	# pseudonym, so print out the form.
+
+	my ($realFirstName, $realLastName) = getAuthorInfo ($knownAuthorID);
+
+	print <<"FORM"
+<h3>Pseudonym <em>of</em> $knownAuthorName.</h3>
+
+<form action="/cgi-bin/pseuds" method="post">
+
+<table border>
+<tr>
+<th>&nbsp;</th>
+<th>First Name</th>
+<th>Last Name</th>
+</tr>
+
+<tr>
+<th>Real Name</th>
+<td>$knownFirstName</td>
+<td>$knownLastName</td>
+</tr>
+
+<tr>
+<th>Pseudonym</th>
+<td><input type="text" size="15" name="pseudFirstName" /></td>
+<td><input type="text" size="15" name="pseudLastName" /></td>
+</tr>
+
+</table>
+
+<p>
+<input type="hidden" name="authorid" value="$knownAuthorID" />
+<input type="submit" name="addpseud"  value="Add Pseudonym" />
+</p>
+
+</form>
+
+<h3>Pseudonym <em>for</em> $knownAuthorName.</h3>
+
+<form action="/cgi-bin/pseuds" method="post">
+
+<table border>
+<tr>
+<th>&nbsp;</th>
+<th>First Name</th>
+<th>Last Name</th>
+</tr>
+
+<tr>
+<th>Real Name</th>
+<td><input type="text" size="15" name="realFirstName" /></td>
+<td><input type="text" size="15" name="realLastName" /></td>
+</tr>
+
+<tr>
+<th>Pseudonym</th>
+<td>$knownFirstName</td>
+<td>$knownLastName</td>
+</tr>
+
+</table>
+
+<p>
+<input type="hidden" name="authorid" value="$knownAuthorID" />
+<input type="submit" name="addpseud"  value="Add Real Name" />
+</p>
+
+</form>
+
+FORM
+
+    }
+
+    print $HTML_FOOT;
+    exit;
+
+}
+
+
+# Else we just print out the default page.
+
+print <<"BODY";
+
+<form action="/cgi-bin/pseuds" method="post">
+<p>
+<input type="submit" name="listpseuds" value="List By Pseudonym" />
+</p>
+</form>
+
+BODY
+
+print "<h3>Listed By Real Name</h3>\n";
+
+my (@realIDs);
+
+my $dbh = DBI->connect($dataSource, $userName, $password)
+   or die "Couldn't connect to database: " . DBI->errstr;  
+
+my $sth = $dbh->prepare(q(
+SELECT DISTINCT realNameRef FROM pseudonyms))
+   or die "Couldn't prepare statement: " . $dbh -> errstr;   
+
+$sth -> execute
+   or die "Couldn't execute statement: " . $sth -> errstr;
+
+while (my @data = $sth -> fetchrow_array()) {
+    push (@realIDs, $data[0]);
+}
+
+$sth->finish;
+$dbh->disconnect;
+
+# Prepare the list of real names so it can be sorted.
+# This is the same thing as up above, except it switches real names 
+# with pseudonyms.  This should be one routine with pointers, or
+# something like that ... really it is exact duplication with
+# pseudo <-> real interchanged, down to variable names.
+
+my %realNameHash;
+
+foreach my $realID (@realIDs) {
+
+    ($realNameHash{$realID}{'firstName'},
+     $realNameHash{$realID}{'lastName'}) = getAuthorInfo ($realID);
+
+}
+
+print "<ul>\n";
+
+foreach my $realID (sort { $realNameHash{$a}{'lastName'} cmp
+			   $realNameHash{$b}{'lastName'} } 
+		    keys %realNameHash) {
+
+    print qq(<li>) .
+       qq(<a href="/cgi-bin/author?authorid=$realID">) .
+	  formatAuthorName ($realNameHash{$realID}{'firstName'},
+			    $realNameHash{$realID}{'lastName'}) .
+       qq(</a>\n);
+
+    # Their real names we'll get now, and also prepare in 
+    # advance so they can be sorted.
+
+    my (@pseudIDs) = listPseudonymsOf ($realID);
+
+    my %pseudoNameHash;
+
+    foreach my $pseudID (@pseudIDs) {
+
+	($pseudoNameHash{$pseudID}{'firstName'},
+	 $pseudoNameHash{$pseudID}{'lastName'}) = getAuthorInfo ($pseudID);
+	    
+    }
+    
+    print "<ul>\n";
+
+    foreach my $pseudID (sort { $pseudoNameHash{$a}{'lastName'} cmp
+			        $pseudoNameHash{$b}{'lastName'} } 
+			 keys %pseudoNameHash) {
+
+	print qq(<li>) .
+	   qq(<a href="/cgi-bin/author?authorid=$pseudID">) .
+	      formatAuthorName ($pseudoNameHash{$pseudID}{'firstName'},
+				$pseudoNameHash{$pseudID}{'lastName'}) .
+	   qq(</a>\n);
+	print "</li>\n";
+	    
+    }
+
+
+    print "</ul>\n";
+
+    print "</li>\n";
+
+}
+
+print "</ul>\n";
+
+print $HTML_FOOT;
+
+
+
