@@ -1,10 +1,35 @@
-How to set it up on your web server
+HISTORY
+-------
 
-TODO: Instructions here.
+I wrote this early in 2001 so I could manage my personal library.
+That was BEFORE I went to library school.  There were a couple of
+programs out there for managing personal libraries, but none suited my
+needs, so I wrote this.  I had never taken a cataloguing course, knew
+nothing about MARC records, and wasn't a very good programmer.  (The
+first two changed, the third is still true.)  
 
+If I were doing this again I'd do it very differently, or I might not
+do it at all.  I might use LibraryThing to manage my collection.  If I
+wrote something for myself I'd use Python or Ruby with a good web
+framework.  But I did this in 2001, before any of that, and I've used
+it ever since, and it does its job: I know what I have and where it
+is.
+
+I don't expect any interest in this, but I'm putting it on GitHub to
+make my life easier, and because there's no reason to keep it private.
+
+
+HOW TO SET IT UP
+----------------
+
+How to set up your web server
+-----------------------------
+
+TODO: Instructions here.  Include the virtual host config file.
 
 
 How to set up the database
+--------------------------
 
 # mysql -u root
 > create user 'marion'@'localhost' identified by 'XXXXXX';
