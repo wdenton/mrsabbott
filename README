@@ -24,20 +24,65 @@ Warning:  This is not good Perl.
 HOW TO SET IT UP
 ----------------
 
+Since I don't expect anyone to actually run this these instructions
+are not overly helpful.
+
 How to set up your web server
 -----------------------------
 
-TODO: Instructions here.  Include the virtual host config file.
+Set up the hostname 'library' in your DNS.  I use /etc/hosts and have
+it at the same IP number as my local machine. Because Apache will be
+configured to look for a virtual host with that name, this will work:
+
+<VirtualHost *:80>
+	ServerName library
+	ServerAdmin webmaster@localhost
+
+	DocumentRoot /var/www/library/
+	<Directory /var/www/library/>
+		AddHandler cgi-script .cgi
+		Options ExecCGI FollowSymLinks MultiViews
+		DirectoryIndex index.cgi
+		AllowOverride None
+		Order allow,deny
+		Allow from all
+	</Directory>
+
+	ScriptAlias /cgi-bin/ /var/www/library/cgi-bin/
+	<Directory "/var/www/library/cgi-bin">
+		AllowOverride None
+		Options +ExecCGI -MultiViews +SymLinksIfOwnerMatch
+		Order allow,deny
+		Allow from all
+	</Directory>
+
+	ErrorLog /var/log/apache2/library-error.log
+
+	# Possible values include: debug, info, notice, warn, error, crit,
+	# alert, emerg.
+	LogLevel warn
+
+	CustomLog /var/log/apache2/library-access.log combined
+</VirtualHost>
+
+Put all of the Mrs. Abbott files into /var/www/library, set up Apache,
+run 'apache2ctl restart', and everything will probably be OK.  If not
+then a bit of fiddling will do it if you keep at it, I'm sure.
 
 
 How to set up the database
 --------------------------
+
+Of course you'll also need to set up the database before you can
+actually add or view any books.  First, create the database in MySQL:
 
 # mysql -u root
 > create user 'marion'@'localhost' identified by 'XXXXXX';
 > create database library;
 > grant all privileges on library.* to marion;
 > quit;
+
+Now create the tables and initial data.
 
 TODO: [Put the default insert script here]
 
