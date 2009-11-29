@@ -1,18 +1,9 @@
-#!/usr/local/bin/perl
-
-# ----------------------------------------------------------------
-# $Id: count.pl,v 1.1 2003/03/08 01:32:30 buff Exp $
-# $Author: buff $
-# $RCSfile: count.pl,v $
-# Current $Revision: 1.1 $
-# Current $Date: 2003/03/08 01:32:30 $
-# Current $Locker:  $
-# ----------------------------------------------------------------
+#!/usr/bin/perl
 
 use strict;
 use DBI;
 
-use lib "/usr/local/www/server/library/cgi-bin";
+use lib "cgi-bin";
 use MrsAbbott;
 use MrsAbbott::Config;
 use MrsAbbott::Author;

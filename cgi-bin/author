@@ -166,7 +166,7 @@ if ($query -> param('authorid')) {
 	my $niceTitle = formatTitle ($titleHash{$titleID}{'article'},
 				     $titleHash{$titleID}{'title'},
 				     $titleHash{$titleID}{'edition'});
-	print qq(<li> <a href="/cgi-bin/title?titleid=$titleID">$niceTitle</a>\n);
+	print qq(<li> <a href="/cgi-bin/title?titleid=$titleID"><cite>$niceTitle</cite></a>\n);
 	print "</li>\n";
 
     }

@@ -17,8 +17,7 @@ print<<"BODY";
 
 <p>
 
-Welcome to the Miskatonic University Press Library catalogue! Use the 
-menu on the left to browse or search the catalogue.
+Welcome to the Miskatonic University Press Library catalogue!
 
 </p>
 

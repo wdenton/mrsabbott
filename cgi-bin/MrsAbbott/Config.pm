@@ -40,9 +40,9 @@ my $lcSubClassList = "lc-subclasses.txt";
 
 # ----------
 
-%URL = ('update' => '/update',
-        'title'  => '/title',
-        'search' => '/search',
+%URL = ('update' => '/cgi-bin/update',
+        'title'  => '/cgi-bin/title',
+        'search' => '/cgi-bin/search',
 );
 
 @titleFields = ('Title ID', 'Article', 'Title', 'Format', 'Edition', 
@@ -79,7 +79,7 @@ my $lcSubClassList = "lc-subclasses.txt";
 
 
 $SEARCH_FORM = qq(
-<form action="/search" method="post">
+<form action="/cgi-bin/search" method="get">
 
 <table>
 
@@ -108,7 +108,7 @@ $SEARCH_FORM = qq(
 
 my $titleBarSearch = qq(
 
-<form action="/search" method="post">
+<form action="/cgi-bin/search" method="get">
 Title: <input type="text" size="10" name="title" value="::TITLE::" />
 Author: <input type="text" size="10" name="author" value="::AUTHOR::" />
 <input type="submit" name="search" value="Search" />

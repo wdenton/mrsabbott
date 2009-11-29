@@ -1,0 +1,16 @@
+How to set it up on your web server
+
+TODO: Instructions here.
+
+
+
+How to set up the database
+
+# mysql -u root
+> create user 'marion'@'localhost' identified by 'shipoopie';
+> create database library;
+> grant all privileges on library.* to marion;
+> quit;
+
+TODO: [Put the default insert script here]
+

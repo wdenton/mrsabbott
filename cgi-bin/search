@@ -133,7 +133,7 @@ WHERE (lastName LIKE "%$authorQuery%" OR firstName LIKE "%authorQuery%"));
 
 
 
-	    print qq(<li> <a href="/author?authorid=$authorID">) .
+	    print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
 	       formatAuthorName ($authorHash{$authorID}{'firstName'},
 				 $authorHash{$authorID}{'lastName'}, 1) .
 	       "</a>\n";
