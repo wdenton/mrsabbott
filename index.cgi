@@ -1,7 +1,7 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/perl -w
 
 use strict;
-use lib "/usr/local/www/server/library/cgi-bin";
+use lib "cgi-bin";
 use MrsAbbott;
 use MrsAbbott::Config;
 

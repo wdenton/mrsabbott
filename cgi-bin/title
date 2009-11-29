@@ -1,19 +1,10 @@
-#!/usr/local/bin/perl -w
-
-# ----------------------------------------------------------------
-# $Id: title,v 1.4 2004/03/04 00:26:15 buff Exp $
-# $Author: buff $
-# $RCSfile: title,v $
-# Current $Revision: 1.4 $
-# Current $Date: 2004/03/04 00:26:15 $
-# Current $Locker:  $
-# ----------------------------------------------------------------
+#!/usr/bin/perl -w
 
 use strict;
 use DBI;
 use CGI qw(escape unescape);
 
-use lib "/usr/local/www/server/library/cgi-bin";
+#use lib "/usr/local/www/server/library/cgi-bin";
 
 use MrsAbbott;
 use MrsAbbott::Config;

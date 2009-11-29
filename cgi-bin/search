@@ -1,13 +1,4 @@
-#!/usr/local/bin/perl -w
-
-# ----------------------------------------------------------------
-# $Id: search,v 1.6 2005/04/17 14:39:26 buff Exp $
-# $Author: buff $
-# $RCSfile: search,v $
-# Current $Revision: 1.6 $
-# Current $Date: 2005/04/17 14:39:26 $
-# Current $Locker:  $
-# ----------------------------------------------------------------
+#!/usr/bin/perl -w
 
 use strict;
 use DBI;
@@ -142,7 +133,7 @@ WHERE (lastName LIKE "%$authorQuery%" OR firstName LIKE "%authorQuery%"));
 
 
 
-	    print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
+	    print qq(<li> <a href="/author?authorid=$authorID">) .
 	       formatAuthorName ($authorHash{$authorID}{'firstName'},
 				 $authorHash{$authorID}{'lastName'}, 1) .
 	       "</a>\n";

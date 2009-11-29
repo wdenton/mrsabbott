@@ -1,13 +1,4 @@
-#!/usr/local/bin/perl -w
-
-# ----------------------------------------------------------------
-# $Id: Config.pm,v 1.4 2005/04/17 14:55:01 buff Exp $
-# $Author: buff $
-# $RCSfile: Config.pm,v $
-# Current $Revision: 1.4 $
-# Current $Date: 2005/04/17 14:55:01 $
-# Current $Locker:  $
-# ----------------------------------------------------------------
+#!/usr/bin/perl -w
 
 package MrsAbbott::Config;
 
@@ -42,16 +33,16 @@ $password   = 'shipoopie';
 my $libraryName = "Miskatonic University Press Library";
 
 # Admin e-mail address
-my $adminEmail = "buff\@pobox.com";
+my $adminEmail = "wtd\@pobox.com";
 
 # Name of lc-subclasses.txt file
 my $lcSubClassList = "lc-subclasses.txt";
 
 # ----------
 
-%URL = ('update' => '/cgi-bin/update',
-        'title'  => '/cgi-bin/title',
-        'search' => '/cgi-bin/search',
+%URL = ('update' => '/update',
+        'title'  => '/title',
+        'search' => '/search',
 );
 
 @titleFields = ('Title ID', 'Article', 'Title', 'Format', 'Edition', 
@@ -88,7 +79,7 @@ my $lcSubClassList = "lc-subclasses.txt";
 
 
 $SEARCH_FORM = qq(
-<form action="/cgi-bin/search" method="post">
+<form action="/search" method="post">
 
 <table>
 
@@ -117,7 +108,7 @@ $SEARCH_FORM = qq(
 
 my $titleBarSearch = qq(
 
-<form action="/cgi-bin/search" method="post">
+<form action="/search" method="post">
 Title: <input type="text" size="10" name="title" value="::TITLE::" />
 Author: <input type="text" size="10" name="author" value="::AUTHOR::" />
 <input type="submit" name="search" value="Search" />
@@ -134,7 +125,7 @@ $HTML_HEAD = qq(
 <title>Mrs. Abbott: $libraryName</title>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
 <link rev="made" href="mailto:$adminEmail" />
-<link rel="stylesheet" type="text/css" href="/library.css" />
+<link rel="stylesheet" type="text/css" href="/css/library.css" />
 <!-- link rel="shortcut icon"
       href="http://library/images/favicon.ico" / -->
 </head>

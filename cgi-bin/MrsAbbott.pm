@@ -1,13 +1,4 @@
-#!/usr/local/bin/perl -w
-
-# ----------------------------------------------------------------
-# $Id: MrsAbbott.pm,v 1.3 2007/07/28 23:31:57 buff Exp $
-# $Author: buff $
-# $RCSfile: MrsAbbott.pm,v $
-# Current $Revision: 1.3 $
-# Current $Date: 2007/07/28 23:31:57 $
-# Current $Locker:  $
-# ----------------------------------------------------------------
+#!/usr/bin/perl -w
 
 package MrsAbbott;
 
