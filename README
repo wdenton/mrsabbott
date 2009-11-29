@@ -7,7 +7,7 @@ TODO: Instructions here.
 How to set up the database
 
 # mysql -u root
-> create user 'marion'@'localhost' identified by 'shipoopie';
+> create user 'marion'@'localhost' identified by 'XXXXXX';
 > create database library;
 > grant all privileges on library.* to marion;
 > quit;
