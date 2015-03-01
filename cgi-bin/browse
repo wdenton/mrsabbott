@@ -28,15 +28,15 @@ if ($query->param('class')) {
     print "<h2>Class $class ($lcSubClasses{$class})</h2>\n";
 
     my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(qq(
 SELECT * FROM title WHERE callNumber LIKE "$class%"
 AND callNumber NOT LIKE "FIC%"))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     while (my $hashRef = $sth->fetchrow_hashref) {
 	$titleHash{$hashRef->{'id'}} = $hashRef;
@@ -59,15 +59,15 @@ AND callNumber NOT LIKE "FIC%"))
 	# works is much easier to see this way.
 
 	my ($titleCallLetter) =
-	   ($titleHash{$titleID}{'callNumber'} =~ m/^([a-z]*) .*/i);
+	    ($titleHash{$titleID}{'callNumber'} =~ m/^([a-z]*) .*/i);
 
 	unless ($class eq $titleCallLetter) {
-	        print "</ul>\n<h3>$titleCallLetter " .
-		   (defined $lcSubClasses{$titleCallLetter} ?
-		            "($lcSubClasses{$titleCallLetter})": "") .
-		   "</h3>\n";
-		print "<ul>\n";
-		$class = $titleCallLetter;
+	    print "</ul>\n<h3>$titleCallLetter " .
+		(defined $lcSubClasses{$titleCallLetter} ?
+		 "($lcSubClasses{$titleCallLetter})": "") .
+		 "</h3>\n";
+	    print "<ul>\n";
+	    $class = $titleCallLetter;
 	}
 
 	my $bookTitle = formatTitle ($titleHash{$titleID}{'article'},
@@ -76,8 +76,8 @@ AND callNumber NOT LIKE "FIC%"))
 
 	$bookTitle = "<big>$bookTitle</big>" if $titleID == $highlightID;
 
-	my ($cutter) = 
-	   ($titleHash{$titleID}{'callNumber'} =~ m/^.* (\d*)\..*/);
+	my ($cutter) =
+	    ($titleHash{$titleID}{'callNumber'} =~ m/^.* (\d*)\..*/);
 
 	print "<li> "; # Can print $cutter here if you want.
 	print qq(<a href="/cgi-bin/title?titleid=$titleID">$bookTitle</a>);
@@ -85,7 +85,6 @@ AND callNumber NOT LIKE "FIC%"))
 	print "</li>\n";
 
     }
-
 
     print "</ul>\n";
 
@@ -98,13 +97,13 @@ print $HTML_FOOT;
 sub byCallNum {
 
 
-    my ($call1, $number1, $sub1) = 
-       ($titleHash{$a}{'callNumber'} =~ m/([a-z]*) ([\d\.]*)\.(.*)/i);
+    my ($call1, $number1, $sub1) =
+	($titleHash{$a}{'callNumber'} =~ m/([a-z]*) ([\d\.]*)\.(.*)/i);
 
     # print "  $a = $call1, $number1, $sub1\n";
 
-    my ($call2, $number2, $sub2) = 
-       ($titleHash{$b}{'callNumber'} =~ m/([a-z]*) ([\d\.?]*)\.(.*)/i);
+    my ($call2, $number2, $sub2) =
+	($titleHash{$b}{'callNumber'} =~ m/([a-z]*) ([\d\.?]*)\.(.*)/i);
 
     # print "  $b = $call2, $number2, $sub2\n";
 
@@ -132,7 +131,8 @@ sub byCallNum {
         my ($l2, $n2) = ($subs2[$_] =~ m/([a-z]*)(\d*)/i);
 
         next if ($l1 eq $l2) && ($n1 eq $n2);
-        return ($l1 cmp $l2) || ($n1 <=> $n2);
+	# Compare letters as letters and numbers as strings (so they sort correctly)
+        return ($l1 cmp $l2) || ($n1 cmp $n2);
 
     }
 
