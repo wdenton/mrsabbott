@@ -22,7 +22,7 @@ use vars qw($dataSource $userName $password $HTML_HEAD $HTML_FOOT %URL
 	    @purchaseDays @purchaseMonths @purchaseYears
 	    @titleArticles @bookFormats @titleFields %titleFields);
 
-# Set these variables to the right values for your database type 
+# Set these variables to the right values for your database type
 # and user and database you've set for the catalogue.
 
 $dataSource = 'DBI:mysql:library';
@@ -36,7 +36,7 @@ my $libraryName = "Miskatonic University Press Library";
 my $adminEmail = "wtd\@pobox.com";
 
 # Name of lc-subclasses.txt file
-my $lcSubClassList = "lc-subclasses.txt";
+my $lcSubClassList = "/etc/perl/MrsAbbott/lc-subclasses.txt";
 
 # ----------
 
@@ -45,8 +45,8 @@ my $lcSubClassList = "lc-subclasses.txt";
         'search' => '/cgi-bin/search',
 );
 
-@titleFields = ('Title ID', 'Article', 'Title', 'Format', 'Edition', 
-		'Publisher', 'Call No.', 'ISBN', 'First Printed', 'Published', 
+@titleFields = ('Title ID', 'Article', 'Title', 'Format', 'Edition',
+		'Publisher', 'Call No.', 'ISBN', 'First Printed', 'Published',
 		'Purchase Date', 'Purchase Cost', 'First Line', 'Notes');
 
 %titleFields = ('01id'           => 'Title ID',
