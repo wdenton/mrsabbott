@@ -3,7 +3,6 @@
 package MrsAbbott::Title;
 
 use MrsAbbott::Config;
-use utf8::all;
 
 use strict;
 require Exporter;

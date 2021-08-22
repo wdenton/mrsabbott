@@ -2,8 +2,7 @@
 
 use strict;
 use DBI;
-use utf8::all;
-use CGI qw(escape unescape -utf8);
+use CGI qw(escape unescape);
 
 use lib "/usr/local/www/server/library/cgi-bin";
 
