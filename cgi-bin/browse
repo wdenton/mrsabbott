@@ -28,7 +28,7 @@ if ($query->param('class')) {
 
     print "<h2>Class $class ($lcSubClasses{$class})</h2>\n";
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(qq(

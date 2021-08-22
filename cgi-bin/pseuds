@@ -35,7 +35,7 @@ BODY
 
     my (@pseudIDs);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
@@ -296,7 +296,7 @@ print "<h3>Listed By Real Name</h3>\n";
 
 my (@realIDs);
 
-my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+my $dbh = DBI->connect($dataSource, $userName, $password)
     or die "Couldn't connect to database: " . DBI->errstr;
 
 my $sth = $dbh->prepare(q(

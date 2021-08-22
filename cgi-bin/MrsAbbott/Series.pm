@@ -19,7 +19,7 @@ sub getSeriesByTitleID {
 
     my ($seriesHashRef, $titleID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
@@ -51,7 +51,7 @@ sub getTitlesBySeriesID {
 
     my ($titleHashRef, $seriesID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
@@ -86,7 +86,7 @@ sub listSeries {
 
     my $seriesHashRef = shift;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM series))
@@ -111,7 +111,7 @@ sub getSeriesName {
 
     my ($seriesID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM series WHERE id = ?))
@@ -144,7 +144,7 @@ sub getSeriesInfo {
 
     my ($seriesHashRef, $seriesID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM isInSeries WHERE seriesRef = ?))

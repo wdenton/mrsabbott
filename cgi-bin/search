@@ -32,7 +32,7 @@ if ($query -> param('search')) {
     # $SEARCH_FORM =~ s/::AUTHOR::/$authorQuery/;
     # print $SEARCH_FORM;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -165,7 +165,7 @@ if ($query->path_info) {
 
     print qq(<h2>Browse Authors by Last Name: $lastNameLetter</h2>\n);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 

@@ -2,8 +2,7 @@
 
 use strict;
 use DBI;
-use utf8::all;
-use CGI qw(escape unescape -utf8);
+use CGI qw(escape unescape);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 
@@ -15,7 +14,7 @@ use MrsAbbott::Series;
 use MrsAbbott::Title;
 
 my $query = new CGI;
-print $query -> header("text/html;charset=UTF-8");;
+print $query -> header("text/html;charset=UTF-8");
 
 $HTML_HEAD =~ s/::TITLE:://;
 $HTML_HEAD =~ s/::AUTHOR:://;

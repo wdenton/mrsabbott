@@ -22,7 +22,7 @@ sub getTitleInfo {
 
     my ($titleHashRef, $titleID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM title WHERE id = ?))
@@ -61,7 +61,7 @@ sub getTitlesByAuthorID {
 
     my ($titleHashRef, $authorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8m4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(

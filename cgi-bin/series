@@ -42,7 +42,7 @@ if ($query->param('seriesadd')) {
 
 	# Coming back, this time we know the name of the series.
 
-	my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	my $dbh = DBI->connect($dataSource, $userName, $password)
 	    or die "Couldn't connect to database: " . DBI->errstr;
 
 	my $insertName = $dbh->quote($seriesName);
@@ -159,7 +159,7 @@ if ($query->param('updateseries')) {
 
     print "Series contains $number books. ";
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     # Delete all the old information about the series.
@@ -277,7 +277,7 @@ if ($query->param('addtoseries')) {
 	      qq(<cite>$titleName</cite></a> ).
 	      qq(will be in place # $placeInSeries );
 
-	my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	my $dbh = DBI->connect($dataSource, $userName, $password)
 	    or die "Couldn't connect to database: " . DBI->errstr;
 
 	$dbh->do(qq(
@@ -351,7 +351,7 @@ if ($query->param('seriesid')) {
 
 my %seriesList;
 
-my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+my $dbh = DBI->connect($dataSource, $userName, $password)
     or die "Couldn't connect to database: " . DBI->errstr;
 
 my $sth = $dbh->prepare(q(SELECT * FROM series))

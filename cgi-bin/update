@@ -2,8 +2,7 @@
 
 use strict;
 use DBI;
-use utf8::all;
-use CGI qw(unescape escape -utf8);
+use CGI qw(unescape escape);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 use MrsAbbott;
@@ -142,15 +141,13 @@ if ($query->param('updatebook')) {
 
 	print "<h2>Updating <cite>$bookTitle</cite> (ID $newTitleID)</h2>\n";
 
-	print $query->param('title');
-
 	# Do we need to remove an author from this title?
 
 	if ($query->param('deleteauthor')) {
 
 	    # Yes, we do!
 
-	    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    my $dbh = DBI->connect($dataSource, $userName, $password)
 		or print "<strong>Error</strong> " .
 		"Couldn't connect to database: " . DBI->errstr;
 
@@ -175,7 +172,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 	my $dbUpdate = "UPDATE title SET ";
 
-	$dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	$dbh = DBI->connect($dataSource, $userName, $password)
 	    or print "<strong>Error</strong> " .
 	    "Couldn't connect to database: " . DBI->errstr;
 
@@ -231,7 +228,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 	    exit;
 	}
 
-	my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	my $dbh = DBI->connect($dataSource, $userName, $password)
 	    or print "<strong>Error</strong> " .
 	    "Couldn't connect to database: " . DBI->errstr;
 
@@ -344,7 +341,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 	       (join ",", @columns) . ") VALUES (" .
 	       (join ",", @values)  . ")";
 
-	    $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    $dbh = DBI->connect($dataSource, $userName, $password)
 		or print "<strong>Error</strong> " .
 		"Couldn't connect to database: " . DBI->errstr;
 
@@ -396,7 +393,7 @@ if ($query->param('deletetitle')) {
 
     # First, delete the record from the title table.
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -428,7 +425,7 @@ DELETE FROM hasWritten WHERE titleRef = $titleID");
 	my $seriesName    = $seriesHash{$seriesID}{'name'};
 	my $placeInSeries = $seriesHash{$seriesID}{'placeInSeries'};
 
-	$dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	$dbh = DBI->connect($dataSource, $userName, $password)
 	    or print "<strong>Error</strong> " .
 	    "Couldn't connect to database: " . DBI->errstr;
 

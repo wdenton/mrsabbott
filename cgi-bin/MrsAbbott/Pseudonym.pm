@@ -24,7 +24,7 @@ sub isPseudonymFor {
 
     my ($authorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
@@ -56,7 +56,7 @@ sub listPseudonymsOf {
 
     my ($realID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
@@ -87,7 +87,7 @@ sub connectRealNameToPseudonym {
 
     my ($realAuthorID, $pseudAuthorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     $dbh->do(qq(

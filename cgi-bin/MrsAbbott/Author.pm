@@ -22,7 +22,7 @@ sub getAuthorInfo {
     my ($authorID) = (@_);
     my $authorHashRef;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -56,7 +56,7 @@ sub getAuthorsByTitleID {
     my $titleID = shift;
     my @listOfAuthors;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -65,7 +65,7 @@ SELECT a.id FROM author a, hasWritten h
 WHERE h.titleRef = ?
 AND h.authorRef = a.id))
 	or print "<strong>Error</strong> " .
-                "Couldn't prepare statement: " . $dbh -> errstr;
+	"Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($titleID)
        or print "<strong>Error</strong> " .
@@ -98,7 +98,7 @@ sub findAuthorByNames {
     $dbQuery .= qq(firstName = "$firstName" AND ) if $firstName;
     $dbQuery .= qq(lastName = "$lastName");
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -126,7 +126,7 @@ sub insertAuthor {
     $firstName = "NULL" unless defined $firstName;
     $lastName  = "NULL" unless defined $lastName;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -135,7 +135,7 @@ sub insertAuthor {
 
     $dbh->do(qq(
 INSERT INTO author (firstName, lastName) VALUES ($firstName, $lastName)))
-        or print "<strong>Error</strong> " . "Couldn't prepare statement: " . $dbh -> errstr;
+	or print "<strong>Error</strong> " . "Couldn't prepare statement: " . $dbh -> errstr;
 
     my $newAuthorID = $dbh->{'mysql_insertid'};
 
@@ -159,7 +159,7 @@ sub editAuthorName {
     $firstName = "NULL" unless defined $firstName;
     $lastName  = "NULL" unless defined $lastName;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
@@ -169,7 +169,7 @@ sub editAuthorName {
     my $rowsAffected = $dbh->do(qq(
 UPDATE author SET firstName=$firstName, lastName=$lastName
 WHERE id = '$authorID'))
-        or print "<strong>Error</strong> " .
+	or print "<strong>Error</strong> " .
 	         "Couldn't prepare statement: " . $dbh -> errstr;
 
     $dbh->disconnect;
@@ -188,14 +188,14 @@ sub replaceAuthor {
 
     my ($oldAuthorID, $newAuthorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
     my $rowsAffected = $dbh->do(qq(
 UPDATE hasWritten SET authorRef=$newAuthorID WHERE authorRef = '$oldAuthorID'))
-        or print "<strong>Error</strong> " .
-	         "Couldn't prepare statement: " . $dbh -> errstr;
+	or print "<strong>Error</strong> " .
+	"Couldn't prepare statement: " . $dbh -> errstr;
 
     # I haven't actually tested this pseudonym stuff.
 
@@ -203,13 +203,13 @@ UPDATE hasWritten SET authorRef=$newAuthorID WHERE authorRef = '$oldAuthorID'))
     $dbh->do(qq(
 UPDATE pseudonyms SET realNameRef=$newAuthorID
 WHERE realNameRef = '$oldAuthorID'))
-        or print "<strong>Error</strong> " .
-	         "Couldn't prepare statement: " . $dbh -> errstr;
+	or print "<strong>Error</strong> " .
+	"Couldn't prepare statement: " . $dbh -> errstr;
 
     $dbh->do(qq(
 UPDATE pseudonyms SET pseudoNameRef=$newAuthorID
 WHERE pseudoNameRef = '$oldAuthorID'))
-        or print "<strong>Error</strong> " .
+	or print "<strong>Error</strong> " .
 	         "Couldn't prepare statement: " . $dbh -> errstr;
 
     $dbh->disconnect;
@@ -227,13 +227,13 @@ sub deleteAuthor {
 
     my ($authorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
     my $rowsAffected = $dbh->do(qq(
 DELETE FROM author WHERE id = '$authorID'))
-        or print "<strong>Error</strong> " .
+	or print "<strong>Error</strong> " .
 	         "Couldn't prepare statement: " . $dbh -> errstr;
 
     $dbh->disconnect;
@@ -273,13 +273,13 @@ sub connectAuthorToTitle {
 
     my ($authorID, $titleID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    my $dbh = DBI->connect($dataSource, $userName, $password)
 	or print "<strong>Error</strong> " .
 	"Couldn't connect to database: " . DBI->errstr;
 
     $dbh->do(qq(
 INSERT INTO hasWritten (authorRef, titleRef) VALUES ($authorID, $titleID)))
-        or print "<strong>Error</strong> " .
+	or print "<strong>Error</strong> " .
 	         "Couldn't prepare statement: " . $dbh -> errstr;
 
     my $hasWrittenID = $dbh->{'mysql_insertid'};
