@@ -19,15 +19,15 @@ sub getSeriesByTitleID {
 
     my ($seriesHashRef, $titleID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
 SELECT s.name, s.id, i.placeInSeries
 FROM series s, isInSeries i
 WHERE i.titleRef = ?
 AND s.id = i.seriesRef))
-      or die "Couldn't prepare statement: " . $dbh -> errstr;   
+      or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($titleID)
        or die "Couldn't execute statement: " . $sth -> errstr;
@@ -51,17 +51,17 @@ sub getTitlesBySeriesID {
 
     my ($titleHashRef, $seriesID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
 SELECT t.* FROM title t, isInSeries i
 WHERE i.seriesRef = ?
 AND i.titleRef = t.id))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($seriesID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     while (my $hashRef = $sth->fetchrow_hashref) {
 	$titleHashRef->{$hashRef->{'id'}} = $hashRef;
@@ -86,14 +86,14 @@ sub listSeries {
 
     my $seriesHashRef = shift;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM series))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     while (my $hashRef = $sth->fetchrow_hashref) {
 	$seriesHashRef->{$hashRef->{'id'}} = $hashRef->{'name'};
@@ -111,14 +111,14 @@ sub getSeriesName {
 
     my ($seriesID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM series WHERE id = ?))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($seriesID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     # There will be only one line per seriesID, so we don't need to loop.
     my $hashRef = $sth->fetchrow_hashref;
@@ -130,7 +130,7 @@ sub getSeriesName {
 
     return $seriesName;
 
-}    
+}
 
 
 sub getSeriesInfo {
@@ -144,14 +144,14 @@ sub getSeriesInfo {
 
     my ($seriesHashRef, $seriesID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM isInSeries WHERE seriesRef = ?))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($seriesID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     while (my $hashRef = $sth->fetchrow_hashref) {
 	$seriesHashRef->{$hashRef->{'placeInSeries'}} = $hashRef;

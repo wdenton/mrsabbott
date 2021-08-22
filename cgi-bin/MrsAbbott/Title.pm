@@ -3,6 +3,7 @@
 package MrsAbbott::Title;
 
 use MrsAbbott::Config;
+use utf8::all;
 
 use strict;
 require Exporter;
@@ -10,7 +11,7 @@ require Exporter;
 use vars     qw (@ISA @EXPORT @EXPORT_OK);
 @ISA       = qw (Exporter);
 @EXPORT    = qw (getTitlesByAuthorID getTitleInfo formatTitle newFormatTitle
-		 );
+    );
 @EXPORT_OK = qw ();
 
 
@@ -21,14 +22,14 @@ sub getTitleInfo {
 
     my ($titleHashRef, $titleID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(SELECT * FROM title WHERE id = ?))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($titleID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     while (my $hashRef = $sth->fetchrow_hashref) {
 	$titleHashRef->{$hashRef->{'id'}} = $hashRef;
@@ -44,7 +45,6 @@ sub getTitleInfo {
 
 }
 
-
 sub getTitlesByAuthorID {
 
     # Given a reference to a hash, and an author's ID number,
@@ -54,24 +54,24 @@ sub getTitlesByAuthorID {
     # about that title, keyed to the field names from the title
     # table.  If that makes sense.
     #
-    # So you get back 
+    # So you get back
     #  $hash{'1'}{'title'} = 'Title of Book 1'
     #  $hash{'1'}{'publisher'} = 'Signet'
     # etc.
 
     my ($titleHashRef, $authorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8m4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
-SELECT t.* FROM title t, hasWritten h 
+SELECT t.* FROM title t, hasWritten h
 WHERE h.authorRef = ?
 AND h.titleRef = t.id))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($authorID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     while (my $hashRef = $sth->fetchrow_hashref) {
 
@@ -91,7 +91,6 @@ AND h.titleRef = t.id))
     1;
 
 }
-
 
 sub formatTitle {
 
@@ -118,6 +117,5 @@ sub newFormatTitle {
 			$titleHash{$titleID}{'edition'});
 
 }
-
 
 1;

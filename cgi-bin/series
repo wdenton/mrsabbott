@@ -2,7 +2,8 @@
 
 use strict;
 use DBI;
-use CGI qw(escape unescape);
+use utf8::all;
+use CGI qw(escape unescape -utf8);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 use MrsAbbott;
@@ -12,7 +13,7 @@ use MrsAbbott::Title;
 
 # ----- Things to do with series
 #
-# Here we can: 
+# Here we can:
 #   Add a new series
 #   Edit an existing series (change where books fall in the series,
 #    which includes deleting them from a series)
@@ -20,7 +21,7 @@ use MrsAbbott::Title;
 #   Just view all the books in a given series
 
 my $query = new CGI;
-print $query -> header;
+print $query -> header("text/html;charset=UTF-8");;
 
 $HTML_HEAD =~ s/::TITLE:://;
 $HTML_HEAD =~ s/::AUTHOR:://;
@@ -41,15 +42,15 @@ if ($query->param('seriesadd')) {
 
 	# Coming back, this time we know the name of the series.
 
-	my $dbh = DBI->connect($dataSource, $userName, $password)
-	   or die "Couldn't connect to database: " . DBI->errstr;  
+	my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    or die "Couldn't connect to database: " . DBI->errstr;
 
 	my $insertName = $dbh->quote($seriesName);
 
 	$dbh->do(qq(
 INSERT INTO series (name) VALUES ($insertName)))
-        or die "Couldn't prepare statement: " . $dbh -> errstr;   
-    
+        or die "Couldn't prepare statement: " . $dbh -> errstr;
+
 	my $newSeriesID = $dbh->{'mysql_insertid'};
 
 	$dbh->disconnect;
@@ -118,11 +119,11 @@ if ($query->param('editseries')) {
 	my $bookTitle = newFormatTitle ($titleID);
 
 	print "<tr>\n";
-	print qq(<td><input type="text" size="3" value="$placeInSeries" 
+	print qq(<td><input type="text" size="3" value="$placeInSeries"
 		 name="place_$counter" /></td>\n);
-	print qq(<input type="hidden" value="$titleID" 
+	print qq(<input type="hidden" value="$titleID"
 		 name="titleref_$counter" />\n);
-	print qq(<td><a 
+	print qq(<td><a
 		 href="/cgi-bin/title?titleid=$titleID"><cite>$bookTitle</cite></a></td>\n);
 	print "</tr>\n";
 
@@ -133,7 +134,7 @@ if ($query->param('editseries')) {
     print "<p>\n";
     print qq(<input type="hidden" name="number" value="$counter" />\n);
     print qq(<input type="hidden" name="seriesid" value="$seriesID" />\n);
-    print qq(<input type="submit" name="updateseries" 
+    print qq(<input type="submit" name="updateseries"
 	     value="Update Series" />\n);
     print "</p>\n";
     print qq(</form>\n);
@@ -158,30 +159,30 @@ if ($query->param('updateseries')) {
 
     print "Series contains $number books. ";
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     # Delete all the old information about the series.
 
     my $rowsAffected =
-       $dbh->do("DELETE FROM isInSeries WHERE seriesRef = $seriesID");
+	$dbh->do("DELETE FROM isInSeries WHERE seriesRef = $seriesID");
 
     print "Deleted old information.  $rowsAffected rows affected.\n";
 
     # And then insert the new stuff.
 
     my $sth = $dbh->prepare("INSERT INTO isInSeries VALUES ('NULL', ?, ?, ?)");
-    
+
     for my $i (1 .. $number) {
-	
+
 	# If a book has no place (field left blank), or is set
 	# to be less than 0, then that means the book is to be
 	# dropped from the series.
 	next unless $query->param("place_$i") > 0;
 
-	$sth->execute ($query->param("titleref_$i"), 
-		       $seriesID,
-		       $query->param("place_$i"));
+	$sth->execute ($query->param("titleref_$i"),
+		      $seriesID,
+		      $query->param("place_$i"));
 
     }
 
@@ -216,7 +217,7 @@ if ($query->param('addtoseries')) {
 
 	my %seriesList;
 	listSeries (\%seriesList);
-	
+
 	# You can only add a book to an existing series.
 	print "<p>Please choose the series the book will go in. ";
 	print "The series must already exist.  If you need to add ";
@@ -224,14 +225,14 @@ if ($query->param('addtoseries')) {
 
 	print qq(<form action="/cgi-bin/series" method="post">\n);
 	print "<p>\n";
-	print qq(<input type="submit" name="seriesadd" 
+	print qq(<input type="submit" name="seriesadd"
 		 value="Add A Series" />\n);
 	print "</p>\n";
 	print qq(</form>\n);
 
 	print "<p>Otherwise, please pick the series the book is in ";
 	print "and its place in that series.</p>\n";
-   
+
 	print qq(<form action="/cgi-bin/series" method="post">\n);
 	print "<p>\n";
 	print "Series: ";
@@ -239,8 +240,8 @@ if ($query->param('addtoseries')) {
 
 	foreach my $seriesID (sort {$seriesList{$a} cmp $seriesList{$b}}
 			      keys %seriesList) {
-	    
-	    print 
+
+	    print
 	    qq(<option value="$seriesID"> $seriesList{$seriesID}</option>\n);
 
 	}
@@ -251,13 +252,13 @@ if ($query->param('addtoseries')) {
 	print qq(<input type="text" size="2" name="placeinseries" />);
 	print qq(<input type="hidden" name="titleid" value="$titleID" />);
 	print "</p><p>\n";
-	print qq(<input type="submit" name="addtoseries" 
+	print qq(<input type="submit" name="addtoseries"
 		 value="Add to Series" />);
-	
+
 	print "</p>\n";
 	print "</form>\n";
 
-    } else { 
+    } else {
 
 	# We know the book, the series, and where book belongs in
 	# the series, so let's go to town and add all this to the
@@ -270,20 +271,20 @@ if ($query->param('addtoseries')) {
 
 	print "<h2>Adding <cite>$titleName</cite> to " .
 	    "the $seriesName series</h2>\n";
-	
+
 	print "<p>\n";
 	print qq(<a href="/cgi-bin/title?titleid=$titleID">) .
 	      qq(<cite>$titleName</cite></a> ).
 	      qq(will be in place # $placeInSeries );
 
-	   my $dbh = DBI->connect($dataSource, $userName, $password)
-	      or die "Couldn't connect to database: " . DBI->errstr;  
+	my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    or die "Couldn't connect to database: " . DBI->errstr;
 
 	$dbh->do(qq(
-INSERT INTO isInSeries (titleRef, seriesRef, placeInSeries) 
+INSERT INTO isInSeries (titleRef, seriesRef, placeInSeries)
 VALUES ($titleID, $seriesID, $placeInSeries)))
-        or die "Couldn't prepare statement: " . $dbh -> errstr;   
-    
+        or die "Couldn't prepare statement: " . $dbh -> errstr;
+
 	my $seriesRefID = $dbh->{'mysql_insertid'};
 
 	$dbh->disconnect;
@@ -291,9 +292,9 @@ VALUES ($titleID, $seriesID, $placeInSeries)))
 	print qq(in <a href="/cgi-bin/series?seriesid=$seriesID">) .
 	   qq($seriesName</a> (ID $seriesRefID)\n);
 	print "</p>\n";
-	
+
     }
-    
+
     print $HTML_FOOT;
     exit;
 
@@ -350,20 +351,20 @@ if ($query->param('seriesid')) {
 
 my %seriesList;
 
-my $dbh = DBI->connect($dataSource, $userName, $password)
-   or die "Couldn't connect to database: " . DBI->errstr;  
+my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+    or die "Couldn't connect to database: " . DBI->errstr;
 
 my $sth = $dbh->prepare(q(SELECT * FROM series))
-   or die "Couldn't prepare statement: " . $dbh -> errstr;   
+    or die "Couldn't prepare statement: " . $dbh -> errstr;
 
-$sth -> execute 
-   or die "Couldn't execute statement: " . $sth -> errstr;
+$sth -> execute
+    or die "Couldn't execute statement: " . $sth -> errstr;
 
 # There will be only one line per seriesID, so we don't need to loop.
 while (my $hashRef = $sth->fetchrow_hashref) {
 
     $seriesList{$hashRef->{'id'}} = $hashRef->{'name'};
- 
+
 }
 
 $sth->finish;

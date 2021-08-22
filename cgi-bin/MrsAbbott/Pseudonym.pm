@@ -18,21 +18,21 @@ sub isPseudonymFor {
 
     # Given an author ID, return a list of all ID numbers of
     # all authors who use that name as a pseudonym.
-    # 
+    #
     # So Richard Stark  returns (Donald E. Westlake)
     #    Brett Halliday returns (Davis Dresser, another, more)
 
     my ($authorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
 SELECT * FROM pseudonyms WHERE pseudoNameRef = ?))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($authorID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     my @realNameIDs;
 
@@ -45,7 +45,7 @@ SELECT * FROM pseudonyms WHERE pseudoNameRef = ?))
     $dbh->disconnect;
 
     return (@realNameIDs);
-    
+
 
 }
 
@@ -56,15 +56,15 @@ sub listPseudonymsOf {
 
     my ($realID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(q(
 SELECT * FROM pseudonyms WHERE realNameRef = ?))
-       or die "Couldn't prepare statement: " . $dbh -> errstr;   
+	or die "Couldn't prepare statement: " . $dbh -> errstr;
 
     $sth -> execute ($realID)
-       or die "Couldn't execute statement: " . $sth -> errstr;
+	or die "Couldn't execute statement: " . $sth -> errstr;
 
     my @pseudIDs;
 
@@ -87,14 +87,14 @@ sub connectRealNameToPseudonym {
 
     my ($realAuthorID, $pseudAuthorID) = (@_);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or die "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or die "Couldn't connect to database: " . DBI->errstr;
 
     $dbh->do(qq(
-INSERT INTO pseudonyms (realNameRef, pseudoNameRef) 
+INSERT INTO pseudonyms (realNameRef, pseudoNameRef)
 VALUES ($realAuthorID, $pseudAuthorID)))
-        or die "Couldn't prepare statement: " . $dbh -> errstr;   
-    
+        or die "Couldn't prepare statement: " . $dbh -> errstr;
+
     my $hasWrittenID = $dbh->{'mysql_insertid'};
 
     $dbh->disconnect;

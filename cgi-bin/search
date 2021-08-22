@@ -2,7 +2,8 @@
 
 use strict;
 use DBI;
-use CGI qw(escape);
+use utf8::all;
+use CGI qw(escape unescape -utf8);
 
 use lib "/usr/local/www/server/library/cgi-bin";
 
@@ -13,7 +14,7 @@ use MrsAbbott::Series;
 use MrsAbbott::Title;
 
 my $query = new CGI;
-print $query -> header;
+print $query -> header("text/html;charset=UTF-8");
 
 
 if ($query -> param('search')) {
@@ -31,9 +32,9 @@ if ($query -> param('search')) {
     # $SEARCH_FORM =~ s/::AUTHOR::/$authorQuery/;
     # print $SEARCH_FORM;
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or print "<strong>Error</strong> " . 
-                "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or print "<strong>Error</strong> " .
+	"Couldn't connect to database: " . DBI->errstr;
 
     my ($dbQuery, $resultsMsg);
 
@@ -67,11 +68,11 @@ AND h.authorRef = a.id);
 	}
 
 	my $sth = $dbh->prepare($dbQuery)
-	   or print "<strong>Error</strong> " . 
-	            "Couldn't prepare statement: " . $dbh -> errstr;   
+	   or print "<strong>Error</strong> " .
+	            "Couldn't prepare statement: " . $dbh -> errstr;
 
 	$sth -> execute
-	   or print "<strong>Error</strong> " . 
+	   or print "<strong>Error</strong> " .
 	            "Couldn't execute statement: " . $sth -> errstr;
 
 	while (my $hashRef = $sth->fetchrow_hashref) {
@@ -86,7 +87,7 @@ AND h.authorRef = a.id);
 	print "<ul>\n";
 
 	foreach my $titleID (sort # Alphabetical by title
-			     {$titleHash{$a}{'title'} cmp 
+			     {$titleHash{$a}{'title'} cmp
 				 $titleHash{$b}{'title'}}
 			     keys %titleHash) {
 
@@ -104,15 +105,15 @@ AND h.authorRef = a.id);
 	my %authorHash;
 
 	$dbQuery .= qq(
-SELECT * from author 
+SELECT * from author
 WHERE (lastName LIKE "%$authorQuery%" OR firstName LIKE "%authorQuery%"));
 
 	my $sth = $dbh->prepare($dbQuery)
-	   or print "<strong>Error</strong> " . 
-	            "Couldn't prepare statement: " . $dbh -> errstr;   
+	   or print "<strong>Error</strong> " .
+	            "Couldn't prepare statement: " . $dbh -> errstr;
 
 	$sth -> execute
-	   or print "<strong>Error</strong> " . 
+	   or print "<strong>Error</strong> " .
 	            "Couldn't execute statement: " . $sth -> errstr;
 
 	while (my $hashRef = $sth->fetchrow_hashref) {
@@ -127,8 +128,8 @@ WHERE (lastName LIKE "%$authorQuery%" OR firstName LIKE "%authorQuery%"));
 	print "<ul>\n";
 
 	foreach my $authorID (sort # Alphabetical by title
-			     {$authorHash{$a}{'lastName'} cmp 
-				 $authorHash{$b}{'lastName'}}
+			     {$authorHash{$a}{'lastName'} cmp
+				  $authorHash{$b}{'lastName'}}
 			     keys %authorHash) {
 
 
@@ -164,19 +165,19 @@ if ($query->path_info) {
 
     print qq(<h2>Browse Authors by Last Name: $lastNameLetter</h2>\n);
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or print "<strong>Error</strong> " .
-                "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or print "<strong>Error</strong> " .
+	"Couldn't connect to database: " . DBI->errstr;
 
-    my $sth = $dbh->prepare("SELECT id FROM author 
+    my $sth = $dbh->prepare("SELECT id FROM author
 WHERE lastName LIKE \"$lastNameLetter%\" ORDER BY lastName, firstName")
-       or print "<strong>Error</strong> " . 
-                "Couldn't prepare statement: " . $dbh -> errstr;   
+	or print "<strong>Error</strong> " .
+	"Couldn't prepare statement: " . $dbh -> errstr;
 
     my @data;
     $sth -> execute
-       or print "<strong>Error</strong> " . 
-                "Couldn't execute statement: " . $sth -> errstr;
+	or print "<strong>Error</strong> " .
+	"Couldn't execute statement: " . $sth -> errstr;
 
     print "<ul>\n";
 
@@ -212,7 +213,7 @@ print $HTML_HEAD;
 # If things change and a fancier search is introduced (perhaps if
 # this moves to using MARC records or something), then this can be
 # an advanced search.  Right now, there's nothing more to it than
-# appears in the top menu-bar search form that's on every page, so 
+# appears in the top menu-bar search form that's on every page, so
 # there's no point in reproducing it here.
 
 # print "<h2>Search the Catalogue</h2>\n";
@@ -287,5 +288,3 @@ print "</form>\n";
 print $HTML_FOOT;
 
 exit;
-
-

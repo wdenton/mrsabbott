@@ -2,7 +2,8 @@
 
 use strict;
 use DBI;
-use CGI qw(escape unescape);
+use utf8::all;
+use CGI qw(escape unescape -utf8);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 
@@ -15,7 +16,7 @@ use MrsAbbott::Title;
 
 my $query = new CGI;
 
-print $query->header;
+print $query->header("text/html;charset=UTF-8");
 print $HTML_HEAD;
 
 use vars qw($titleID %titleHash);
@@ -27,7 +28,7 @@ if ($query->param('class')) {
 
     print "<h2>Class $class ($lcSubClasses{$class})</h2>\n";
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
 	or die "Couldn't connect to database: " . DBI->errstr;
 
     my $sth = $dbh->prepare(qq(

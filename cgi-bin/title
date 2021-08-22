@@ -2,7 +2,8 @@
 
 use strict;
 use DBI;
-use CGI qw(escape unescape);
+use utf8::all;
+use CGI qw(escape unescape -utf8);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 
@@ -14,7 +15,7 @@ use MrsAbbott::Series;
 use MrsAbbott::Title;
 
 my $query = new CGI;
-print $query -> header;
+print $query -> header("text/html;charset=UTF-8");;
 
 $HTML_HEAD =~ s/::TITLE:://;
 $HTML_HEAD =~ s/::AUTHOR:://;
@@ -40,7 +41,7 @@ if ($query -> param('titleid')) {
     my @authorList = getAuthorsByTitleID ($titleID);
 
     print "<h3>Author" . (scalar @authorList > 1 ? "s" : "" ) .
-       "</h3>\n";
+	"</h3>\n";
 
     print "<ul>\n";
 
@@ -49,15 +50,15 @@ if ($query -> param('titleid')) {
 	# This loop should be sorted by the last name of the author.
 
 	print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
-	   formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
+	    formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
 
 	my (@checkPseuds) = isPseudonymFor ($authorID);
 
 	foreach my $realAuthorID (@checkPseuds) {
 
 	    print qq(\(<a href="/cgi-bin/author?authorid=$realAuthorID">) .
-	       formatAuthorName (getAuthorInfo ($realAuthorID)) .
-	       qq(</a>\)\n);
+		formatAuthorName (getAuthorInfo ($realAuthorID)) .
+		qq(</a>\)\n);
 
 	}
 
@@ -69,7 +70,7 @@ if ($query -> param('titleid')) {
 
     print "<p>$titleHash{$titleID}{'callNumber'}</p>\n";
     print "<p>$titleHash{$titleID}{'publisher'} " .
-	  "($titleHash{$titleID}{'format'}) ";
+	"($titleHash{$titleID}{'format'}) ";
 
     if ($titleHash{$titleID}{'isbn'}) {
 	print "$titleHash{$titleID}{'isbn'} ";
@@ -113,22 +114,22 @@ if ($query -> param('titleid')) {
     # It also shows a lot of ugly stuff we needn't display, so
     # I took this out and did the it long way.
 
-#     print qq(<table border="0">\n);
+    #     print qq(<table border="0">\n);
 
-#     foreach my $key (sort keys %titleFields) {
+    #     foreach my $key (sort keys %titleFields) {
 
-#        (my $keyname = $key) =~ s/^\d+//;
+    #        (my $keyname = $key) =~ s/^\d+//;
 
-#        print "<tr>\n";
-#        print qq(<td class="titleleft">$titleFields{$key}</td>\n);
-#        print qq(<td class="titleright">);
-#        print defined $titleHash{$titleID}{$keyname} ? 
-# 	      $titleHash{$titleID}{$keyname} : "&nbsp;";
-#        print "</td>\n";
-#        print "</tr>\n";
-#        print "\n";
+    #        print "<tr>\n";
+    #        print qq(<td class="titleleft">$titleFields{$key}</td>\n);
+    #        print qq(<td class="titleright">);
+    #        print defined $titleHash{$titleID}{$keyname} ?
+    # 	      $titleHash{$titleID}{$keyname} : "&nbsp;";
+    #        print "</td>\n";
+    #        print "</tr>\n";
+    #        print "\n";
 
-#     }
+    #     }
 
     # Is the book part of a series?
 
@@ -152,15 +153,15 @@ if ($query -> param('titleid')) {
 	print "#$placeInSeries\n";
 	print "</p>\n";
 
-# 	print "<tr>\n";
-# 	print qq(<td class="titleleft">Series</td>\n);
-# 	print qq(<td class="titleright"><a href="/cgi-bin/series?seriesid=$seriesID">$seriesName</a></td>\n);
-# 	print "</tr>\n";
+	# 	print "<tr>\n";
+	# 	print qq(<td class="titleleft">Series</td>\n);
+	# 	print qq(<td class="titleright"><a href="/cgi-bin/series?seriesid=$seriesID">$seriesName</a></td>\n);
+	# 	print "</tr>\n";
 
-# 	print "<tr>\n";
-# 	print qq(<td class="titleleft">Series No.</td>\n);
-# 	print qq(<td class="titleright">$placeInSeries</td>\n);
-# 	print "</tr>\n";
+	# 	print "<tr>\n";
+	# 	print qq(<td class="titleleft">Series No.</td>\n);
+	# 	print qq(<td class="titleright">$placeInSeries</td>\n);
+	# 	print "</tr>\n";
 
     }
 
@@ -196,7 +197,7 @@ if ($query -> param('titleid')) {
     print "<td>\n";
     print qq(<form action="/cgi-bin/series" method="post">\n);
     print "<p>\n";
-    print qq(<input type="submit" name="addtoseries" 
+    print qq(<input type="submit" name="addtoseries"
 	     value="Add to Series" />\n);
     print qq(<input type="hidden" name="titleid" value="$titleID" />\n);
     print "</p>\n";
@@ -212,4 +213,3 @@ if ($query -> param('titleid')) {
     exit;
 
 }
-

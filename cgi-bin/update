@@ -2,7 +2,8 @@
 
 use strict;
 use DBI;
-use CGI qw(escape);
+use utf8::all;
+use CGI qw(unescape escape -utf8);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 use MrsAbbott;
@@ -15,13 +16,13 @@ use MrsAbbott::Title;
 use vars qw($errorMsg $dbh $sth);
 
 my $query = new CGI;
-print $query -> header;
+print $query -> header("text/html;charset=UTF-8");;
 
 $HTML_HEAD =~ s/::TITLE:://;
 $HTML_HEAD =~ s/::AUTHOR:://;
 print $HTML_HEAD;
 
-unless ($query->param) { 
+unless ($query->param) {
 
     # Must be we want to start from scratch, so print a blank form.
 
@@ -77,7 +78,7 @@ if ($query->param('editbook')) {
     foreach my $authorID (@authorList) {
 
 	print "<li>" . formatAuthorName (getAuthorInfo ($authorID)) . "\n";
-	print qq(<input type="checkbox" name="deleteauthor" 
+	print qq(<input type="checkbox" name="deleteauthor"
 		  value="$authorID" />);
 	print "</li>\n";
 
@@ -97,7 +98,7 @@ if ($query->param('editbook')) {
     print qq(<form action="/cgi-bin/update" method="post">\n);
     print "<p>\n";
     print qq(<label title="Delete this book from the catalogue">);
-    print qq(<input type="submit" name="deletetitle" 
+    print qq(<input type="submit" name="deletetitle"
 	     value="Delete Book" />\n);
     print "</label>\n";
     print qq(<input type="hidden" name="titleid" value="$titleID" />\n);
@@ -114,13 +115,13 @@ if ($query->param('updatebook')) {
     # We want to update the database entry for a book--which includes
     # adding a new book.
 
-    # The process: 
+    # The process:
     # - if it's an update, just do an update
     # - otherwise it's a new book
     # - check all the given information about the book
     #   - if there is a title that matches all that information,
     #     assume it's a duplicate; report on it and demand some
-    #     extra information to distinguish the new book from the 
+    #     extra information to distinguish the new book from the
     #     existing one
     # - check the author
     #   - if the author is in the database, fine
@@ -133,13 +134,15 @@ if ($query->param('updatebook')) {
 
     if ($query->param('id')) {
 
-	# Update an existing book.  We know its ID number, it's 
+	# Update an existing book.  We know its ID number, it's
 	# already in the database.
 
 	$newTitleID = $query->param('id');
 	my $bookTitle = newFormatTitle ($newTitleID);
-	
+
 	print "<h2>Updating <cite>$bookTitle</cite> (ID $newTitleID)</h2>\n";
+
+	print $query->param('title');
 
 	# Do we need to remove an author from this title?
 
@@ -147,9 +150,9 @@ if ($query->param('updatebook')) {
 
 	    # Yes, we do!
 
-	    my $dbh = DBI->connect($dataSource, $userName, $password)
-	       or print "<strong>Error</strong> " .
-	                "Couldn't connect to database: " . DBI->errstr;  
+	    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+		or print "<strong>Error</strong> " .
+		"Couldn't connect to database: " . DBI->errstr;
 
 	    my $sth = $dbh->prepare("
 DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
@@ -160,9 +163,9 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 		$sth->execute ($authorID, $newTitleID);
 
 	    }
-	    
+
 	    $dbh->disconnect;
-	    
+
 	}
 
 	# There's no more to be done with this author.  Any existing
@@ -172,9 +175,9 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 	my $dbUpdate = "UPDATE title SET ";
 
-	$dbh = DBI->connect($dataSource, $userName, $password)
-	   or print "<strong>Error</strong> " .
-	            "Couldn't connect to database: " . DBI->errstr;  
+	$dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    or print "<strong>Error</strong> " .
+	    "Couldn't connect to database: " . DBI->errstr;
 
 	my @updates;
 
@@ -182,10 +185,10 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 	    (my $keyname = $key) =~ s/^\d+//;
 	    next if $keyname eq "id";
-	    my $value = length ($query->param($keyname)) ? 
-	       $dbh->quote($query->param($keyname)) : qq(NULL);
+	    my $value = length ($query->param($keyname)) ?
+		$dbh->quote($query->param($keyname)) : qq(NULL);
 	    push (@updates,  "$keyname=$value");
-		
+
 	}
 
 	$dbUpdate .= join (",", @updates);
@@ -193,15 +196,15 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 	# print "<p>dbUpdate = $dbUpdate</p>\n";
 
-	my $rowsAffected = $dbh->do($dbUpdate) 
+	my $rowsAffected = $dbh->do($dbUpdate)
 	   or print "<strong>Error</strong>: " .
-	            "Couldn't execute statement: " . $dbh -> errstr;   
+	            "Couldn't execute statement: " . $dbh -> errstr;
 
 	$dbh->disconnect;
 
     } else {
 
-	# First, check to see if this book already exists in the 
+	# First, check to see if this book already exists in the
 	# database.  We might as well do this before checking on
 	# the author because this will flag an error and send
 	# the form back to the user, so there's not really much
@@ -228,26 +231,26 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 	    exit;
 	}
 
-	my $dbh = DBI->connect($dataSource, $userName, $password)
-	   or print "<strong>Error</strong> " .
-	            "Couldn't connect to database: " . DBI->errstr;  
+	my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    or print "<strong>Error</strong> " .
+	    "Couldn't connect to database: " . DBI->errstr;
 
 	my $dbQuery = qq(SELECT id FROM title WHERE title = ) .
-	   $dbh->quote($query->param('title'));
+	    $dbh->quote($query->param('title'));
 
 	foreach my $key (sort keys %titleFields) {
 
 	    (my $keyname = $key) =~ s/^\d+//;
 	    next if $keyname eq 'title'; # That's our primary search field
 	    next unless $query->param("$keyname");
-	    $dbQuery .= qq( AND $keyname = \") . 
-	       $dbh->quote($query->param("$keyname")) . qq(\");
+	    $dbQuery .= qq( AND $keyname = \") .
+		$dbh->quote($query->param("$keyname")) . qq(\");
 
 	}
 
 	my $sth = $dbh->prepare($dbQuery)
 	   or print "<strong>Error</strong> " .
-	            "Couldn't prepare statement: " . $dbh -> errstr;   
+	            "Couldn't prepare statement: " . $dbh -> errstr;
 
 	$sth -> execute
 	   or  print "<strong>Error</strong> " .
@@ -271,7 +274,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 	    foreach my $titleID (@matchingTitleIDs) {
 
-		print qq(<li> <a href="/cgi-bin/title?titleid=$titleID">) . 
+		print qq(<li> <a href="/cgi-bin/title?titleid=$titleID">) .
 		   "<cite>" . newFormatTitle ($titleID) . qq(</cite></a>\n);
 		print "</li>\n";
 
@@ -296,7 +299,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 	    # What would be nice in the future is to offer a
 	    # "Browse Known Authors" function, and some way of
 	    # distinguishing authors who share the same name.
-	    
+
 	    my $firstName = $query->param('firstName');
 	    my $lastName  = $query->param('lastName');
 
@@ -311,11 +314,11 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 		$authorID = $isKnownID;
 		print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
-		   qq($authorName</a> is known (ID $isKnownID). ); 
+		   qq($authorName</a> is known (ID $isKnownID). );
 
 	    } else {
 
-		
+
 		$authorID = insertAuthor ($firstName, $lastName);
 		print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
 		   qq($authorName</a> is a new author! );
@@ -334,21 +337,21 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 		next unless $query->param($keyname);
 		push @columns, $keyname;
 		push @values, $dbh->quote($query->param($keyname));
-		
+
 	    }
 
 	    my $dbInsert = "INSERT INTO title " . "(" .
 	       (join ",", @columns) . ") VALUES (" .
 	       (join ",", @values)  . ")";
 
-	    $dbh = DBI->connect($dataSource, $userName, $password)
-	       or print "<strong>Error</strong> " .
-	                "Couldn't connect to database: " . DBI->errstr;  
+	    $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+		or print "<strong>Error</strong> " .
+		"Couldn't connect to database: " . DBI->errstr;
 
 	    $dbh->do($dbInsert)
-	       or print "<strong>Error</strong> " .
-	                "Couldn't prepare statement: " . $dbh -> errstr;   
-    
+		or print "<strong>Error</strong> " .
+	                "Couldn't prepare statement: " . $dbh -> errstr;
+
 	    $newTitleID = $dbh->{'mysql_insertid'};
 	    $dbh->disconnect;
 
@@ -356,7 +359,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 	    # And last, connect the author to the title.
 
-	    my $hasWrittenID = 
+	    my $hasWrittenID =
 	       connectAuthorToTitle ($authorID, $newTitleID);
 
 	    print "Author tied to title (ID $hasWrittenID).</p>\n";
@@ -366,7 +369,7 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
     }
 
     print "<p>\n";
-    print qq(View <a href="/cgi-bin/title?titleid=$newTitleID"><cite>) . 
+    print qq(View <a href="/cgi-bin/title?titleid=$newTitleID"><cite>) .
        newFormatTitle ($newTitleID) . qq(</cite></a>.\n);
     print "</p>\n";
 
@@ -380,9 +383,9 @@ DELETE FROM hasWritten WHERE authorRef = ? AND titleRef = ?");
 
 if ($query->param('deletetitle')) {
 
-    # Completely remove a title from the catalogue.  There's no 
+    # Completely remove a title from the catalogue.  There's no
     # check on this, so watch out, because if you choose this it's
-    # gone.  
+    # gone.
 
     my $titleID = $query->param('titleid');
     my $bookTitle = newFormatTitle ($titleID);
@@ -393,9 +396,9 @@ if ($query->param('deletetitle')) {
 
     # First, delete the record from the title table.
 
-    my $dbh = DBI->connect($dataSource, $userName, $password)
-       or print "<strong>Error</strong> " .
-                "Couldn't connect to database: " . DBI->errstr;  
+    my $dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	or print "<strong>Error</strong> " .
+	"Couldn't connect to database: " . DBI->errstr;
 
     my $rowsAffected  = $dbh->do("DELETE FROM title WHERE id = $titleID");
 
@@ -425,9 +428,9 @@ DELETE FROM hasWritten WHERE titleRef = $titleID");
 	my $seriesName    = $seriesHash{$seriesID}{'name'};
 	my $placeInSeries = $seriesHash{$seriesID}{'placeInSeries'};
 
-	$dbh = DBI->connect($dataSource, $userName, $password)
-	   or print "<strong>Error</strong> " .
-	            "Couldn't connect to database: " . DBI->errstr;  
+	$dbh = DBI->connect($dataSource, $userName, $password, {mysql_enable_utf8mb4 => 1})
+	    or print "<strong>Error</strong> " .
+	    "Couldn't connect to database: " . DBI->errstr;
 
 	# titleID and seriesID will be sufficient to identify the
 	# right entry.  No book will be in the same series twice.
@@ -456,7 +459,7 @@ DELETE FROM isInSeries WHERE titleRef = $titleID AND seriesRef = $seriesID");
 
     foreach my $authorID (@authorList) {
 
-	print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) . 
+	print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
 	   formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
 	print "</li>\n";
 
@@ -484,7 +487,7 @@ if ($query->param('authoradd')) {
 
     unless ($query->param('lastName')) {
 
-	# Print out the form asking for the name of the 
+	# Print out the form asking for the name of the
 	# new author of this book.
 
 	print "<h3>Adding Author to <cite>$bookTitle</cite></h3>\n";
@@ -495,27 +498,27 @@ if ($query->param('authoradd')) {
 
 	my @authorList = getAuthorsByTitleID ($titleID);
 
-	print "<h3>Known Author" . 
+	print "<h3>Known Author" .
 	   (scalar @authorList > 1 ? "s" : "" ) . "</h3>\n";
 
 	print "<ul>\n";
 
 	foreach my $authorID (@authorList) {
 
-	    print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) . 
+	    print qq(<li> <a href="/cgi-bin/author?authorid=$authorID">) .
 	       formatAuthorName (getAuthorInfo ($authorID)) . qq(</a>\n);
 
 	    my (@checkPseuds) = isPseudonymFor ($authorID);
-	    
+
 	    foreach my $realAuthorID (@checkPseuds) {
-	    
+
 		print qq(\(<a href="/cgi-bin/author?authorid=$realAuthorID">) .
 		   formatAuthorName (getAuthorInfo ($realAuthorID)) .
 		      qq( </a>\)\n);
 		print "</li>\n";
 
 	    }
-	    
+
 	}
 
 	print "</ul>\n";
@@ -531,7 +534,7 @@ if ($query->param('authoradd')) {
 	print "</tr></table>\n";
 	print "<p>\n";
 	print qq(<input type="hidden" name="titleid" value="$titleID" />);
-	print qq(<input type="submit" name="authoradd" 
+	print qq(<input type="submit" name="authoradd"
 		 value="Add Author" />\n);
 	print "</p>\n";
 	print qq(</form>\n);
@@ -557,12 +560,12 @@ if ($query->param('authoradd')) {
 	my $authorID;
 
 	if ($isKnownID) {
-		
+
 	    $authorID = $isKnownID;
 
 	    print "<p>\n";
 	    print qq(<a href="/cgi-bin/author?authorid=$authorID">) .
-	       qq($authorName</a> is known (ID $isKnownID). \n); 
+	       qq($authorName</a> is known (ID $isKnownID). \n);
 
 	} else {
 
@@ -577,21 +580,21 @@ if ($query->param('authoradd')) {
 
 	# And as we did up above, connect the author to the title.
 
-	my $hasWrittenID = 
-	   connectAuthorToTitle ($authorID, $titleID);
+	my $hasWrittenID =
+	    connectAuthorToTitle ($authorID, $titleID);
 
 	print "Author tied to title (ID $hasWrittenID).</p>\n";
 
 
 	print "<p>\n";
-	print qq(View <a href="/cgi-bin/title?titleid=$titleID">) . 
-	   newFormatTitle ($titleID) . qq(</a>.\n);
+	print qq(View <a href="/cgi-bin/title?titleid=$titleID">) .
+	    newFormatTitle ($titleID) . qq(</a>.\n);
 	print "</p>\n";
 
     }
 
     print $HTML_FOOT;
-    
+
     exit;
 
 }

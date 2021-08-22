@@ -2,7 +2,8 @@
 
 use strict;
 use DBI;
-use CGI qw(escape unescape);
+use utf8::all;
+use CGI qw(escape unescape -utf8);
 
 #use lib "/usr/local/www/server/library/cgi-bin";
 use MrsAbbott;
@@ -12,7 +13,7 @@ use MrsAbbott::Pseudonym;
 use MrsAbbott::Title;
 
 my $query = new CGI;
-print $query -> header;
+print $query -> header("text/html;charset=UTF-8");
 
 $HTML_HEAD =~ s/::TITLE:://;
 $HTML_HEAD =~ s/::AUTHOR:://;
@@ -29,7 +30,7 @@ if ($query->param('editauthor')) {
     my $authorName = formatAuthorName ($firstName, $lastName);
 
     print qq(<h2>$authorName</h2>\n);
-    
+
     print "<h3>Editing Name</h3>\n";
 
     unless ($query->param('lastName')) {
@@ -41,14 +42,14 @@ if ($query->param('editauthor')) {
 	print "<tr><th>&nbsp;</th><th>First</th><th>Last</th></tr>\n";
 	print "<tr>\n";
 	print "<td>Name:</td>\n";
-	print qq(<td><input type="text" size="19" 
+	print qq(<td><input type="text" size="19"
 		 value="$firstName" name="firstName" /></td>\n);
-	print qq(<td><input type="text" size="19" 
+	print qq(<td><input type="text" size="19"
 		 value="$lastName" name="lastName" /></td>\n);
 	print "</tr>\n</table>\n";
 	print "<p>\n";
      	print qq(<input type="hidden" name="authorid" value="$authorID" />);
-	print qq(<input type="submit" name="editauthor" 
+	print qq(<input type="submit" name="editauthor"
 		 value="Edit Name" />\n);
 	print "</p>\n";
 	print qq(</form>\n);
@@ -65,16 +66,16 @@ if ($query->param('editauthor')) {
 	my $rowsAffected;
 
 	if ($isKnownID) {
-		
-	    print "<p>$newAuthorName is known (ID $isKnownID). ", 
-	    $rowsAffected = replaceAuthor ($authorID, $isKnownID);
+
+	    print "<p>$newAuthorName is known (ID $isKnownID). ",
+		$rowsAffected = replaceAuthor ($authorID, $isKnownID);
 	    $authorID = $isKnownID;
 
 	} else {
 
 	    print "<p>$newAuthorName is a new author! ";
-	    $rowsAffected = editAuthorName 
-	       ($authorID, $newFirstName, $newLastName);
+	    $rowsAffected = editAuthorName
+		($authorID, $newFirstName, $newLastName);
 
 	}
 
@@ -82,7 +83,7 @@ if ($query->param('editauthor')) {
 	print "$authorName changed to <b>$newAuthorName</b>.</p>\n";
 
 	print "<p>\n";
-	print qq(View 
+	print qq(View
 	     <a href="/cgi-bin/author?authorid=$authorID">$newAuthorName</a>);
 	print ".</p>\n";
 
@@ -156,7 +157,7 @@ if ($query -> param('authorid')) {
 
     print "<ol>\n";
 
-    foreach my $titleID 
+    foreach my $titleID
        (sort # Alphabetical by title, within that, edition
 	{ ($titleHash{$a}{'title'} eq $titleHash{$b}{'title'}) ?
 	     return $titleHash{$a}{'edition'} <=> $titleHash{$b}{'edition'} :
@@ -191,16 +192,14 @@ if ($query -> param('authorid')) {
     print qq(<form action="/cgi-bin/pseuds" method="post">\n);
     print "<p>\n";
     print qq(<input type="hidden" name="authorid" value="$authorID" />\n);
-    print qq(<input type="submit" name="addpseud" 
+    print qq(<input type="submit" name="addpseud"
 	     value="Add Pseudonym" />\n);
     print "</p>\n";
     print qq(</form>\n);
     print "</div>\n";
-	
+
     print $HTML_FOOT;
 
     exit;
 
 }
-
-
